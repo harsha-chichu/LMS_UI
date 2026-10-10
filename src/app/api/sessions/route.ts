@@ -39,9 +39,14 @@ export async function POST(request: Request) {
       .single();
     if (error) throw error;
 
-    // Remember the last-used settings as the user's defaults.
+    // Remember the last-used settings as the user's defaults, keeping other
+    // preferences (e.g. the accent colour).
     // (The row always exists: created on sign-up, or backfilled by the migration.)
-    await supabase.from("lms_profiles").update({ preferences: config }).eq("id", user.id);
+    const { data: profile } = await supabase.from("lms_profiles").select("preferences").eq("id", user.id).maybeSingle();
+    await supabase
+      .from("lms_profiles")
+      .update({ preferences: { ...(profile?.preferences ?? {}), ...config } })
+      .eq("id", user.id);
 
     return Response.json({ id: data.id, questions });
   } catch (err) {

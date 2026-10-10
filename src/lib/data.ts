@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR, { mutate } from "swr";
+import { applyAccent, DEFAULT_ACCENT } from "@/lib/accent";
 import { DEFAULT_PREFERENCES } from "@/lib/constants";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Preferences, Profile, QuestionResult, Report, SessionConfig, SessionRow } from "@/types";
@@ -85,6 +86,8 @@ export async function updateName(profile: Profile, name: string) {
 export async function signOut() {
   await getSupabase().auth.signOut();
   await mutate(() => true, undefined, { revalidate: false });
+  // The accent belongs to the account, not the browser; don't leave it for the next person.
+  applyAccent(DEFAULT_ACCENT);
 }
 
 // ---- session API ----

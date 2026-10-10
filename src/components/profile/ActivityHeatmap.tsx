@@ -1,7 +1,7 @@
 import { heatmap, longestStreak } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
-const LEVEL_CLASS = ["bg-[#1a1a1a]", "bg-[#4a2108]", "bg-[#8a3a06]", "bg-[#c95207]", "bg-brand"];
+const LEVEL_CLASS = ["bg-[#1a1a1a]", "bg-(--heat-1)", "bg-(--heat-2)", "bg-(--heat-3)", "bg-brand"];
 
 export function ActivityHeatmap({ activity }: { activity: Record<string, number> }) {
   const { columns, months, total } = heatmap(activity);

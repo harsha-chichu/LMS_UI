@@ -8,6 +8,7 @@ import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/compone
 import { PillLink } from "@/components/common/PillButton";
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { Avatar, StreakPill } from "@/components/common/UserBits";
+import { AccentPicker } from "@/components/profile/AccentPicker";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { ScoreTrend } from "@/components/profile/ScoreTrend";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
@@ -100,6 +101,11 @@ export function ProfileView() {
             onChange={(difficulty) => void updatePreferences(profile, { difficulty })}
           />
         </div>
+      </Section>
+
+      <Section>
+        <SectionLabel>theme colour</SectionLabel>
+        <AccentPicker profile={profile} />
       </Section>
 
       <AccountSection profile={profile} />

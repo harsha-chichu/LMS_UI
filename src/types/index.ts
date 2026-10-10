@@ -128,6 +128,8 @@ export interface Preferences {
   difficulty: Difficulty;
   domain: Domain;
   count: number;
+  /** Accent colour as `#rrggbb`; unset means the default orange. */
+  accent?: string;
 }
 
 export interface Profile {

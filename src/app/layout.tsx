@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter_Tight } from "next/font/google";
+import { ACCENT_SCRIPT } from "@/lib/accent";
 import "./globals.css";
 
 const interTight = Inter_Tight({
@@ -19,7 +20,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${interTight.variable} h-full antialiased`}>
+    // The accent script sets a style on <html> before hydration.
+    <html lang="en" className={`${interTight.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: ACCENT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-black text-white">{children}</body>
     </html>
   );

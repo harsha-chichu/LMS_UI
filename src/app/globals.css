@@ -47,9 +47,14 @@
 
 /* The product is dark-only, matching the designs. */
 :root {
+  /* The user's accent colour (set on <html> by src/lib/accent.ts); every
+     other accent token is derived from it. */
   --brand: #ff6a00;
-  --brand-deep: #8a3a06;
-  --bubble: #2a1306;
+  --brand-deep: color-mix(in oklch, var(--brand) 55%, black);
+  --bubble: color-mix(in oklch, var(--brand) 15%, black);
+  --heat-1: color-mix(in oklch, var(--brand) 25%, #1a1a1a);
+  --heat-2: color-mix(in oklch, var(--brand) 50%, #1a1a1a);
+  --heat-3: color-mix(in oklch, var(--brand) 75%, #1a1a1a);
   --surface: #121212;
   --surface-2: #1f1f1f;
   --line: #222222;
@@ -62,7 +67,7 @@
   --card-foreground: #ffffff;
   --popover: #141414;
   --popover-foreground: #ffffff;
-  --primary: #ff6a00;
+  --primary: var(--brand);
   --primary-foreground: #000000;
   --secondary: #1f1f1f;
   --secondary-foreground: #ffffff;
@@ -73,7 +78,7 @@
   --destructive: #ff4d4d;
   --border: #222222;
   --input: #2a2a2a;
-  --ring: #ff6a00;
+  --ring: var(--brand);
   --radius: 0.75rem;
 
   color-scheme: dark;
