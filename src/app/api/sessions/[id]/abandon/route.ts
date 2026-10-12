@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/sessions/store";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 /** The ✕ on the session screen: close it without a report. */
 export async function POST(_request: Request, ctx: RouteContext<"/api/sessions/[id]/abandon">) {
@@ -8,10 +9,11 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/sessions/[
 
   try {
     const { id } = await ctx.params;
-    const { error } = await auth.supabase
+    const { error } = await getSupabaseAdmin()
       .from("lms_sessions")
       .update({ status: "abandoned" })
       .eq("id", id)
+      .eq("user_id", auth.user.id)
       .eq("status", "in_progress");
     if (error) throw error;
     return Response.json({ ok: true });

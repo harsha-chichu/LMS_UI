@@ -22,6 +22,9 @@ export interface SessionConfig {
 export interface Question {
   id: string;
   text: string;
+  /** lms_questions row this came from. Unset on sessions from before the bank. */
+  bankId?: string;
+  topics?: string[];
 }
 
 /** Delivery assessment from the eval agent, when the answer was recorded audio. */

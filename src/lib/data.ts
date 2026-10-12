@@ -3,6 +3,7 @@
 import useSWR, { mutate } from "swr";
 import { applyAccent, DEFAULT_ACCENT } from "@/lib/accent";
 import { DEFAULT_PREFERENCES } from "@/lib/constants";
+import { type Attempt, type TopicMastery, topicMastery } from "@/lib/mastery";
 import { getSupabase } from "@/lib/supabase/client";
 import type {
   FriendOverview,
@@ -32,6 +33,7 @@ const KEYS = {
   friends: "friends:overview",
   friendRequests: "friends:requests",
   friend: (id: string) => `friends:profile:${id}`,
+  mastery: "mastery",
 };
 
 async function fetchProfile(): Promise<Profile> {
@@ -88,12 +90,24 @@ async function fetchSaved(): Promise<SavedQuestion[]> {
   return (data ?? []) as SavedQuestion[];
 }
 
+/** The user's answered bank questions, rolled up per topic (see src/lib/mastery.ts). */
+async function fetchMastery(): Promise<TopicMastery[]> {
+  const { data, error } = await getSupabase()
+    .from("lms_question_attempts")
+    .select("question_id, session_id, domain, difficulty, topics, score, skipped, created_at")
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  return topicMastery((data ?? []) as Attempt[]);
+}
+
 const swrOptions = { revalidateOnFocus: false };
 
 export const useProfile = () => useSWR(KEYS.profile, fetchProfile, swrOptions);
 export const useCompletedSessions = () => useSWR(KEYS.completed, fetchCompleted, swrOptions);
 export const useSessionRow = (id: string) => useSWR(KEYS.session(id), () => fetchSession(id), swrOptions);
 export const useSavedQuestions = () => useSWR(KEYS.saved, fetchSaved, swrOptions);
+export const useTopicMastery = () => useSWR(KEYS.mastery, fetchMastery, swrOptions);
 
 export interface SaveTarget {
   sessionId: string;
@@ -271,7 +285,7 @@ export async function sendSkip(sessionId: string, index: number, target: "main" 
 
 export async function completeSession(sessionId: string) {
   await api(`/api/sessions/${sessionId}/complete`, { method: "POST" });
-  await Promise.all([mutate(KEYS.completed), mutate(KEYS.session(sessionId))]);
+  await Promise.all([mutate(KEYS.completed), mutate(KEYS.session(sessionId)), mutate(KEYS.mastery)]);
 }
 
 export async function abandonSession(sessionId: string) {

@@ -20,7 +20,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     }
 
     const result = await skip(row, index, target);
-    await saveResult(auth.supabase, row, index, result);
+    await saveResult(auth.user.id, row, index, result);
     return Response.json({ result });
   } catch (err) {
     return errorResponse(err);

@@ -1,5 +1,6 @@
 import "server-only";
 import { SessionError } from "@/lib/sessions/engine";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { SupabaseServer } from "@/lib/supabase/server";
 import type { QuestionResult, SessionRow } from "@/types";
 
@@ -13,13 +14,20 @@ export async function loadSession(supabase: SupabaseServer, id: string, { inProg
   return row;
 }
 
-export async function saveResult(supabase: SupabaseServer, row: SessionRow, index: number, result: QuestionResult) {
-  const results = row.questions.map((question, i) =>
-    i === index ? result : (row.results[i] ?? { question, skipped: false, followUps: [] }),
-  );
-  const { error } = await supabase.from("lms_sessions").update({ results }).eq("id", row.id);
+/**
+ * Writes one question's result. A single SQL statement (lms_save_result), so
+ * concurrent writes to other questions aren't lost and a finished session is never touched.
+ */
+export async function saveResult(userId: string, row: SessionRow, index: number, result: QuestionResult) {
+  const { data, error } = await getSupabaseAdmin().rpc("lms_save_result", {
+    p_session: row.id,
+    p_user: userId,
+    p_index: index,
+    p_result: result,
+  });
   if (error) throw new SessionError(error.message, 500);
-  return results;
+  if (!data) throw new SessionError("session is no longer in progress", 409);
+  return data as QuestionResult[];
 }
 
 /** Turns thrown errors into JSON responses for the route handlers. */

@@ -1,4 +1,4 @@
-import { FALLBACK_FOLLOW_UPS, QUESTION_BANK } from "@/data/questions";
+import { type BankQuestion, FALLBACK_FOLLOW_UPS, QUESTION_BANK } from "@/data/questions";
 import type { ReportNarrative } from "@/lib/scoring";
 import { wordCount } from "@/lib/speech-metrics";
 import type { Difficulty, Domain, Evaluation, QuestionResult, SpeechMetrics } from "@/types";
@@ -23,7 +23,7 @@ function shuffle<T>(items: T[]) {
   return pool;
 }
 
-export function mockQuestions(domain: Domain, difficulty: Difficulty, count: number, topics: string[] = []): string[] {
+export function mockQuestions(domain: Domain, difficulty: Difficulty, count: number, topics: string[] = []): BankQuestion[] {
   // Shuffle with a fresh seed each call so repeat sessions vary.
   const pool = shuffle(QUESTION_BANK[domain][difficulty]);
   // Custom topics have no tags to match, so they're ignored here. Questions on
@@ -31,7 +31,7 @@ export function mockQuestions(domain: Domain, difficulty: Difficulty, count: num
   const wanted = new Set(topics.map((t) => t.toLowerCase()));
   const onTopic = pool.filter((q) => q.topics.some((t) => wanted.has(t)));
   const rest = pool.filter((q) => !onTopic.includes(q));
-  return [...onTopic, ...rest].slice(0, count).map((q) => q.text);
+  return [...onTopic, ...rest].slice(0, count);
 }
 
 const EXAMPLE_MARKERS = /\b(for example|for instance|in my (last )?(project|team|job|role)|we (built|shipped|used)|i (built|shipped|led|used)|\d+ ?(%|ms|x|users|k|m)\b)/;

@@ -12,6 +12,7 @@ import { Avatar, StreakPill } from "@/components/common/UserBits";
 import { AccentPicker } from "@/components/profile/AccentPicker";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { ScoreTrend } from "@/components/profile/ScoreTrend";
+import { WeakAreas } from "@/components/profile/WeakAreas";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
 import { DIFFICULTIES, domainShort, topicsShort } from "@/lib/constants";
 import {
@@ -70,6 +71,8 @@ export function ProfileView() {
       <Section className="py-7">
         <ScoreTrend reports={reports} />
       </Section>
+
+      <WeakAreas />
 
       <Section>
         <SectionLabel>recent sessions</SectionLabel>
