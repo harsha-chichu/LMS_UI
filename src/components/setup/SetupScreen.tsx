@@ -4,6 +4,7 @@ import { Keyboard, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/brand/Logo";
+import { MicCheck } from "@/components/setup/MicCheck";
 import { AppColumn } from "@/components/common/Layout";
 import { PillButton } from "@/components/common/PillButton";
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
@@ -139,6 +140,8 @@ function SetupForm({ initial }: { initial: Preferences }) {
             {mode === "voice" ? <Mic className="size-6" strokeWidth={1.75} /> : <Keyboard className="size-6" strokeWidth={1.75} />}
           </button>
         </div>
+
+        {mode === "voice" && <MicCheck />}
       </div>
 
       <div className="mt-auto pt-10">
