@@ -1,7 +1,6 @@
 "use client";
 
 import { Keyboard, Mic } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { MicCheck } from "@/components/setup/MicCheck";
@@ -11,9 +10,10 @@ import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { UserCluster } from "@/components/common/UserBits";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
+import { useStartSession } from "@/hooks/useStartSession";
 import { TopicPicker } from "@/components/setup/TopicPicker";
 import { DIFFICULTIES, DIFFICULTY_HINT, DOMAINS, MAX_TOPICS, QUESTION_COUNTS, TOPICS } from "@/lib/constants";
-import { createSession, useCompletedSessions, useProfile } from "@/lib/data";
+import { useCompletedSessions, useProfile } from "@/lib/data";
 import { activityFromSessions, currentStreak } from "@/lib/stats";
 import type { Domain, Preferences, SessionConfig } from "@/types";
 
@@ -47,7 +47,6 @@ export function SetupScreen() {
 }
 
 function SetupForm({ initial }: { initial: Preferences }) {
-  const router = useRouter();
   const speechSupported = useSpeechSupported();
   const [config, setConfig] = useState<SessionConfig>({
     domain: initial.domain,
@@ -56,25 +55,13 @@ function SetupForm({ initial }: { initial: Preferences }) {
     mode: initial.mode,
     topics: initial.topicsByDomain?.[initial.domain] ?? [],
   });
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { start: startSession, pending, error } = useStartSession();
 
   const mode = speechSupported ? config.mode : "text";
   const topics = config.topics ?? [];
   const set = (patch: Partial<SessionConfig>) => setConfig((c) => ({ ...c, ...patch }));
 
-  async function start() {
-    setPending(true);
-    setError(null);
-    const finalConfig = { ...config, mode };
-    try {
-      const id = await createSession(finalConfig);
-      router.push(`/session/${id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "couldn't prepare your questions. try again.");
-      setPending(false);
-    }
-  }
+  const start = () => startSession({ ...config, mode });
 
   return (
     <>
