@@ -116,7 +116,7 @@ export function MicCheck() {
   else if (phase === "done" && result) status = RESULT_TEXT[result](heardText, speechError);
 
   return (
-    <div className="border-t border-line py-6 md:py-7">
+    <div className="border-t border-line py-5 md:py-7">
       <div className="flex items-center justify-between gap-4">
         <div>
           <span className="text-[17px]">mic check</span>
