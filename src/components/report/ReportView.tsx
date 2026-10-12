@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { ArrowUpRight, Check, Lightbulb } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams } from "next/navigation";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
 import { SaveButton } from "@/components/common/SaveButton";
 import { ScoreRing } from "@/components/report/ScoreRing";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ANSWER_WEIGHT, COMMUNICATION_WEIGHT, domainShort } from "@/lib/constants";
-import { createSession, useSessionRow } from "@/lib/data";
+import { useStartSession } from "@/hooks/useStartSession";
+import { useSessionRow } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import type { MetricReading, Report } from "@/types";
 
@@ -200,9 +200,7 @@ function MetricRow({ name, reading }: { name: string; reading: MetricReading }) 
 
 /** Same settings, fresh questions, straight into the session. */
 function PracticeAgain({ report }: { report: Report }) {
-  const router = useRouter();
-  const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const { start, pending, error } = useStartSession();
 
   return (
     <>
@@ -210,21 +208,11 @@ function PracticeAgain({ report }: { report: Report }) {
         size="lg"
         arrow={!pending}
         disabled={pending}
-        onClick={async () => {
-          setPending(true);
-          setFailed(false);
-          try {
-            const id = await createSession(report.config);
-            router.push(`/session/${id}`);
-          } catch {
-            setFailed(true);
-            setPending(false);
-          }
-        }}
+        onClick={() => start(report.config)}
       >
         {pending ? "preparing your questions…" : "practice again"}
       </PillButton>
-      {failed && (
+      {error && (
         <p role="alert" className="mt-3 text-center text-[13px] text-brand">
           couldn&apos;t start a session. try again in a moment.
         </p>
