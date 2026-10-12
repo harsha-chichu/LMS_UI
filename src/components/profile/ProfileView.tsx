@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillLink } from "@/components/common/PillButton";
+import { SaveButton } from "@/components/common/SaveButton";
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { Avatar, StreakPill } from "@/components/common/UserBits";
 import { AccentPicker } from "@/components/profile/AccentPicker";
@@ -13,10 +14,19 @@ import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { ScoreTrend } from "@/components/profile/ScoreTrend";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
 import { DIFFICULTIES, domainShort } from "@/lib/constants";
-import { signOut, updateName, updatePreferences, useCompletedSessions, useProfile } from "@/lib/data";
+import {
+  signOut,
+  updateName,
+  updatePreferences,
+  useCompletedSessions,
+  useProfile,
+  useSavedQuestions,
+  type CompletedSession,
+} from "@/lib/data";
 import { relativeDay } from "@/lib/dates";
 import { activityFromSessions, currentStreak, summaryStats } from "@/lib/stats";
 import { getSupabase } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import type { AnswerMode, Profile } from "@/types";
 
 export function ProfileView() {
@@ -81,6 +91,8 @@ export function ProfileView() {
         )}
       </Section>
 
+      <SavedSection sessions={sessions} />
+
       <Section>
         <SectionLabel>preferences</SectionLabel>
         <div className="mt-4 flex items-center justify-between gap-4 py-2">
@@ -114,6 +126,78 @@ export function ProfileView() {
         start a session
       </PillLink>
     </AppColumn>
+  );
+}
+
+const SAVED_PREVIEW = 5;
+
+function SavedSection({ sessions }: { sessions: CompletedSession[] }) {
+  const { data: saved } = useSavedQuestions();
+  const [showAll, setShowAll] = useState(false);
+  if (!saved) return null;
+
+  const completed = new Map(sessions.map((s) => [s.id, s]));
+  const shown = showAll ? saved : saved.slice(0, SAVED_PREVIEW);
+
+  return (
+    <Section>
+      <SectionLabel>saved questions</SectionLabel>
+      {saved.length === 0 ? (
+        <p className="mt-3 text-[15px] text-white/70">tap the bookmark on any question to save it here.</p>
+      ) : (
+        <>
+          <ul className="mt-1">
+            {shown.map((q) => {
+              const session = completed.get(q.session_id);
+              const score = session?.report.questions[q.question_index]?.score;
+              const body = (
+                <>
+                  <span className="block text-[15px] leading-snug">{q.text}</span>
+                  <span className="mt-1.5 block text-[13px] text-subtle">
+                    {relativeDay(q.created_at)} · {domainShort(q.domain)} · {q.difficulty}
+                    {score != null && (
+                      <>
+                        {" · "}
+                        <span className={cn("tabular-nums", score >= 8 ? "text-brand" : "text-white/80")}>
+                          {score.toFixed(1)}/10
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </>
+              );
+              return (
+                <li key={q.id} className="flex items-start gap-3 border-b border-line py-4 last:border-b-0">
+                  {session ? (
+                    <Link href={`/report/${q.session_id}`} className="min-w-0 flex-1 hover:text-white/80">
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="min-w-0 flex-1">{body}</div>
+                  )}
+                  <SaveButton
+                    sessionId={q.session_id}
+                    index={q.question_index}
+                    text={q.text}
+                    config={q}
+                    className="-mt-1.5 -mr-2"
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          {saved.length > SAVED_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-1 text-[14px] text-brand hover:brightness-110"
+            >
+              {showAll ? "show less" : `show all ${saved.length}`}
+            </button>
+          )}
+        </>
+      )}
+    </Section>
   );
 }
 

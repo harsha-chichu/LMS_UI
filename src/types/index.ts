@@ -132,6 +132,17 @@ export interface Preferences {
   accent?: string;
 }
 
+/** A question the user bookmarked, copied out of its session. */
+export interface SavedQuestion {
+  id: string;
+  session_id: string;
+  question_index: number;
+  text: string;
+  domain: Domain;
+  difficulty: Difficulty;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   name: string;

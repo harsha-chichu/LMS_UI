@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
+import { SaveButton } from "@/components/common/SaveButton";
 import { ScoreRing } from "@/components/report/ScoreRing";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ANSWER_WEIGHT, COMMUNICATION_WEIGHT, domainShort } from "@/lib/constants";
@@ -32,10 +33,10 @@ export function ReportView() {
       </AppColumn>
     );
   }
-  return <ReportBody report={row.report} />;
+  return <ReportBody report={row.report} sessionId={row.id} />;
 }
 
-function ReportBody({ report }: { report: Report }) {
+function ReportBody({ report, sessionId }: { report: Report; sessionId: string }) {
   const { config, communication: comm } = report;
 
   return (
@@ -124,9 +125,12 @@ function ReportBody({ report }: { report: Report }) {
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4 pb-5 pl-9 text-[14px]">
-                  <p className="text-[12px] text-subtle">
-                    {q.score === null ? "skipped" : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[12px] text-subtle">
+                      {q.score === null ? "skipped" : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
+                    </span>
+                    <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />
+                  </div>
                   {q.feedback && (
                     <div>
                       <p className="text-[12px] text-subtle">feedback</p>
