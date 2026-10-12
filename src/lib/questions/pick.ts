@@ -74,7 +74,11 @@ function spreadPicker() {
   };
 }
 
-export async function pickQuestions(userId: string, config: SessionConfig, timer?: ServerTimer): Promise<Question[]> {
+export async function pickQuestions(
+  userId: string,
+  config: SessionConfig,
+  { timer, canGenerate }: { timer?: ServerTimer; canGenerate?: Promise<boolean> } = {},
+): Promise<Question[]> {
   const db = getSupabaseAdmin();
   const { domain, difficulty, count } = config;
   const chosen = (config.topics ?? []).map(norm);
@@ -154,6 +158,9 @@ export async function pickQuestions(userId: string, config: SessionConfig, timer
   // ---- the bank ran out: generate the rest and save it ----
   const missing = count - picker.picked.length;
   if (missing > 0) {
+    // Over the daily limit the caller rejects the session anyway, so don't pay for generation.
+    if (!(await (canGenerate ?? true))) return [];
+
     const weakTopics = [...mastery.values()]
       .filter((m) => !m.mastered && (!chosen.length || chosen.includes(m.topic)))
       .sort((a, b) => a.recentAverage - b.recentAverage)

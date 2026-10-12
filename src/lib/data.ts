@@ -11,6 +11,7 @@ import type {
   FriendRequest,
   Preferences,
   Profile,
+  Question,
   QuestionResult,
   Report,
   SavedQuestion,
@@ -248,8 +249,21 @@ const json = (body: unknown): RequestInit => ({
 
 /** Creates a session with fresh questions; returns its id. */
 export async function createSession(config: SessionConfig) {
-  const { id } = await api<{ id: string }>("/api/sessions", json(config));
-  await mutate(KEYS.profile);
+  const { id, questions } = await api<{ id: string; questions: Question[] }>("/api/sessions", json(config));
+  // Hand the new row to the session screen so it can show the first question
+  // without fetching it again. (The saved preferences catch up in the background.)
+  const row: SessionRow = {
+    id,
+    config,
+    questions,
+    results: [],
+    status: "in_progress",
+    report: null,
+    total: null,
+    created_at: new Date().toISOString(),
+    completed_at: null,
+  };
+  await mutate(KEYS.session(id), row, false);
   return id;
 }
 
