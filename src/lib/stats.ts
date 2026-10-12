@@ -29,7 +29,7 @@ export function longestStreak(activity: Record<string, number>) {
   return best;
 }
 
-export function summaryStats(reports: Report[]) {
+export function summaryStats(reports: { total: number }[]) {
   if (reports.length === 0) return { sessions: 0, average: null, best: null };
   const totals = reports.map((r) => r.total);
   return {
@@ -103,4 +103,15 @@ export function activityFromSessions(sessions: { completed_at: string }[]) {
     activity[key] = (activity[key] ?? 0) + 1;
   }
   return activity;
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Numbers used to compare people: totals, this week's sessions and streak. */
+export function personStats(sessions: { total: number; completed_at: string }[], now = new Date()) {
+  return {
+    ...summaryStats(sessions),
+    thisWeek: sessions.filter((s) => now.getTime() - new Date(s.completed_at).getTime() < WEEK_MS).length,
+    streak: currentStreak(activityFromSessions(sessions), now),
+  };
 }

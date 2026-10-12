@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
-const PROTECTED = ["/setup", "/session", "/report", "/profile", "/reset-password"];
+const PROTECTED = ["/setup", "/session", "/report", "/profile", "/friends", "/reset-password"];
 const AUTH_ONLY_SIGNED_OUT = ["/login", "/signup"];
 
 const matches = (path: string, prefixes: string[]) =>

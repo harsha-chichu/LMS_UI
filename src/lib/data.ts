@@ -5,6 +5,9 @@ import { applyAccent, DEFAULT_ACCENT } from "@/lib/accent";
 import { DEFAULT_PREFERENCES } from "@/lib/constants";
 import { getSupabase } from "@/lib/supabase/client";
 import type {
+  FriendOverview,
+  FriendRelation,
+  FriendRequest,
   Preferences,
   Profile,
   QuestionResult,
@@ -12,6 +15,7 @@ import type {
   SavedQuestion,
   SessionConfig,
   SessionRow,
+  UserSearchResult,
 } from "@/types";
 
 /**
@@ -25,6 +29,9 @@ const KEYS = {
   completed: "sessions:completed",
   session: (id: string) => `session:${id}`,
   saved: "saved",
+  friends: "friends:overview",
+  friendRequests: "friends:requests",
+  friend: (id: string) => `friends:profile:${id}`,
 };
 
 async function fetchProfile(): Promise<Profile> {
@@ -156,6 +163,51 @@ export async function updateName(profile: Profile, name: string) {
     .upsert({ id: profile.id, name, preferences: profile.preferences });
   if (error) throw error;
   await mutate(KEYS.profile, { ...profile, name }, false);
+}
+
+// ---- friends ----
+// Everything about other people goes through SQL functions that check the
+// friendship and leave out answers (see supabase/migrations/0003_friends.sql).
+
+export interface FriendProfile {
+  name: string;
+  sessions: CompletedSession[];
+}
+
+async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+  const { data, error } = await getSupabase().rpc(fn, args);
+  if (error) throw error;
+  return data as T;
+}
+
+export const useFriendsOverview = () =>
+  useSWR(KEYS.friends, () => rpc<FriendOverview[]>("lms_friends_overview"), swrOptions);
+export const useFriendRequests = () =>
+  useSWR(KEYS.friendRequests, () => rpc<FriendRequest[]>("lms_friend_requests"), swrOptions);
+export const useFriendProfile = (id: string) =>
+  useSWR(KEYS.friend(id), () => rpc<FriendProfile>("lms_friend_profile", { friend: id }), {
+    ...swrOptions,
+    shouldRetryOnError: false,
+  });
+
+export const searchUsers = (q: string) => rpc<UserSearchResult[]>("lms_search_users", { q });
+
+const refreshFriends = () => Promise.all([mutate(KEYS.friends), mutate(KEYS.friendRequests)]);
+
+export async function sendFriendRequest(id: string) {
+  const relation = await rpc<FriendRelation>("lms_send_friend_request", { target: id });
+  await refreshFriends();
+  return relation;
+}
+
+export async function respondFriendRequest(id: string, accept: boolean) {
+  await rpc("lms_respond_friend_request", { from_user: id, accept });
+  await refreshFriends();
+}
+
+export async function removeFriend(id: string) {
+  await rpc("lms_remove_friend", { other: id });
+  await Promise.all([refreshFriends(), mutate(KEYS.friend(id), undefined, false)]);
 }
 
 export async function signOut() {
