@@ -13,7 +13,7 @@ import { AccentPicker } from "@/components/profile/AccentPicker";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { ScoreTrend } from "@/components/profile/ScoreTrend";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
-import { DIFFICULTIES, domainShort } from "@/lib/constants";
+import { DIFFICULTIES, domainShort, topicsShort } from "@/lib/constants";
 import {
   signOut,
   updateName,
@@ -82,6 +82,9 @@ export function ProfileView() {
                 <Link href={`/report/${s.id}`} className="flex items-center justify-between gap-4 py-4 hover:text-white/80">
                   <span className="text-[15px]">
                     {relativeDay(s.completed_at)} · {domainShort(s.config.domain)} · {s.config.difficulty}
+                    {topicsShort(s.config.topics, 1) && (
+                      <span className="text-subtle"> · {topicsShort(s.config.topics, 1)}</span>
+                    )}
                   </span>
                   <span className="text-[15px] font-medium tabular-nums">{s.total}</span>
                 </Link>

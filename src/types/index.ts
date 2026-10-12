@@ -15,6 +15,8 @@ export interface SessionConfig {
   difficulty: Difficulty;
   count: number;
   mode: AnswerMode;
+  /** Topics to focus on within the domain. Empty or unset means any topic. */
+  topics?: string[];
 }
 
 export interface Question {
@@ -130,6 +132,8 @@ export interface Preferences {
   count: number;
   /** Accent colour as `#rrggbb`; unset means the default orange. */
   accent?: string;
+  /** Last topics picked for each domain. */
+  topicsByDomain?: Partial<Record<Domain, string[]>>;
 }
 
 /** A question the user bookmarked, copied out of its session. */

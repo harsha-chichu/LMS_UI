@@ -60,6 +60,9 @@ export function ReportBody({
         <p className="mt-5 text-[13px] text-white/70">
           {domainShort(config.domain)} · {config.difficulty} · {report.questions.length} questions
         </p>
+        {config.topics?.length ? (
+          <p className="mt-1 text-center text-[13px] text-subtle">{config.topics.join(" · ")}</p>
+        ) : null}
       </div>
 
       <StatRow

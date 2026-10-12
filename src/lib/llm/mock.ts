@@ -14,14 +14,24 @@ function hash(s: string) {
   return h >>> 0;
 }
 
-export function mockQuestions(domain: Domain, difficulty: Difficulty, count: number): string[] {
-  const pool = [...QUESTION_BANK[domain][difficulty]];
-  // Shuffle with a fresh seed each call so repeat sessions vary.
+function shuffle<T>(items: T[]) {
+  const pool = [...items];
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  return pool.slice(0, count);
+  return pool;
+}
+
+export function mockQuestions(domain: Domain, difficulty: Difficulty, count: number, topics: string[] = []): string[] {
+  // Shuffle with a fresh seed each call so repeat sessions vary.
+  const pool = shuffle(QUESTION_BANK[domain][difficulty]);
+  // Custom topics have no tags to match, so they're ignored here. Questions on
+  // the chosen topics come first; the rest of the domain tops up the count.
+  const wanted = new Set(topics.map((t) => t.toLowerCase()));
+  const onTopic = pool.filter((q) => q.topics.some((t) => wanted.has(t)));
+  const rest = pool.filter((q) => !onTopic.includes(q));
+  return [...onTopic, ...rest].slice(0, count).map((q) => q.text);
 }
 
 const EXAMPLE_MARKERS = /\b(for example|for instance|in my (last )?(project|team|job|role)|we (built|shipped|used)|i (built|shipped|led|used)|\d+ ?(%|ms|x|users|k|m)\b)/;

@@ -11,7 +11,8 @@ import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { UserCluster } from "@/components/common/UserBits";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
-import { DIFFICULTIES, DIFFICULTY_HINT, DOMAINS, QUESTION_COUNTS } from "@/lib/constants";
+import { TopicPicker } from "@/components/setup/TopicPicker";
+import { DIFFICULTIES, DIFFICULTY_HINT, DOMAINS, MAX_TOPICS, QUESTION_COUNTS, TOPICS } from "@/lib/constants";
 import { createSession, useCompletedSessions, useProfile } from "@/lib/data";
 import { activityFromSessions, currentStreak } from "@/lib/stats";
 import type { Domain, Preferences, SessionConfig } from "@/types";
@@ -53,11 +54,13 @@ function SetupForm({ initial }: { initial: Preferences }) {
     difficulty: initial.difficulty,
     count: initial.count,
     mode: initial.mode,
+    topics: initial.topicsByDomain?.[initial.domain] ?? [],
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const mode = speechSupported ? config.mode : "text";
+  const topics = config.topics ?? [];
   const set = (patch: Partial<SessionConfig>) => setConfig((c) => ({ ...c, ...patch }));
 
   async function start() {
@@ -80,7 +83,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
           <Select
             items={DOMAINS.map((d) => ({ value: d.value, label: d.label }))}
             value={config.domain}
-            onValueChange={(v) => v && set({ domain: v as Domain })}
+            onValueChange={(v) => v && set({ domain: v as Domain, topics: initial.topicsByDomain?.[v as Domain] ?? [] })}
           >
             <SelectTrigger
               aria-label="domain"
@@ -96,6 +99,22 @@ function SetupForm({ initial }: { initial: Preferences }) {
               ))}
             </SelectContent>
           </Select>
+        </Row>
+
+        <Row
+          label="topics"
+          hint={topics.length ? `${topics.length} of ${MAX_TOPICS} · questions stick to these` : "optional · leave empty for any topic"}
+          below={<TopicPicker options={TOPICS[config.domain]} value={topics} onChange={(t) => set({ topics: t })} />}
+        >
+          {topics.length > 0 && (
+            <button
+              type="button"
+              onClick={() => set({ topics: [] })}
+              className="text-[14px] text-subtle transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              clear
+            </button>
+          )}
         </Row>
 
         <Row label="difficulty" hint={DIFFICULTY_HINT[config.difficulty]}>
@@ -159,7 +178,17 @@ function SetupForm({ initial }: { initial: Preferences }) {
   );
 }
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({
+  label,
+  hint,
+  children,
+  below,
+}: {
+  label: string;
+  hint?: string;
+  children?: React.ReactNode;
+  below?: React.ReactNode;
+}) {
   return (
     <div className="border-b border-line py-5 md:py-7">
       <div className="flex items-center justify-between gap-4">
@@ -167,6 +196,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
         {children}
       </div>
       {hint && <p className="mt-2 text-[14px] text-subtle">{hint}</p>}
+      {below}
     </div>
   );
 }

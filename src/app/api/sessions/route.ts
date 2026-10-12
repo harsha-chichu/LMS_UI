@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { generateQuestions } from "@/lib/llm/service";
 import { sessionConfigSchema } from "@/lib/llm/schemas";
 import { errorResponse } from "@/lib/sessions/store";
+import type { Preferences } from "@/types";
 
 // Keeps one account from burning through the LLM budget.
 const DAILY_SESSION_LIMIT = 30;
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     const config = parsed.data;
-    const { data: texts } = await generateQuestions(config.domain, config.difficulty, config.count);
+    const { data: texts } = await generateQuestions(config.domain, config.difficulty, config.count, config.topics);
     const questions = texts.map((text, i) => ({ id: `q${i + 1}`, text }));
 
     const { data, error } = await supabase
@@ -40,12 +41,16 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     // Remember the last-used settings as the user's defaults, keeping other
-    // preferences (e.g. the accent colour).
+    // preferences (e.g. the accent colour). Topics are remembered per domain.
     // (The row always exists: created on sign-up, or backfilled by the migration.)
     const { data: profile } = await supabase.from("lms_profiles").select("preferences").eq("id", user.id).maybeSingle();
+    const prev = (profile?.preferences ?? {}) as Partial<Preferences>;
+    const { topics = [], ...rest } = config;
     await supabase
       .from("lms_profiles")
-      .update({ preferences: { ...(profile?.preferences ?? {}), ...config } })
+      .update({
+        preferences: { ...prev, ...rest, topicsByDomain: { ...prev.topicsByDomain, [config.domain]: topics } },
+      })
       .eq("id", user.id);
 
     return Response.json({ id: data.id, questions });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_TOPIC_LENGTH, MAX_TOPICS } from "@/lib/constants";
 
 const domain = z.enum(["ai-ml", "data-science", "backend", "frontend", "system-design", "behavioral"]);
 const difficulty = z.enum(["easy", "medium", "hard"]);
@@ -9,6 +10,12 @@ export const sessionConfigSchema = z.object({
   difficulty,
   count: z.number().int().min(1).max(10),
   mode,
+  // Free text that ends up in a prompt, so keep it short and few.
+  topics: z
+    .array(z.string().trim().min(1).max(MAX_TOPIC_LENGTH))
+    .max(MAX_TOPICS)
+    .transform((ts) => ts.filter((t, i) => ts.findIndex((u) => u.toLowerCase() === t.toLowerCase()) === i))
+    .optional(),
 });
 
 // ---- model output formats ----

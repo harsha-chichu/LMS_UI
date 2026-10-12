@@ -26,21 +26,21 @@ async function withFallback<T>(label: string, llm: () => Promise<T>, mock: () =>
   }
 }
 
-export function generateQuestions(domain: Domain, difficulty: Difficulty, count: number) {
+export function generateQuestions(domain: Domain, difficulty: Difficulty, count: number, topics: string[] = []) {
   return withFallback(
     "questions",
     async () => {
       const out = await generateStructured({
         schema: questionsOutput,
         system: INTERVIEWER_SYSTEM,
-        prompt: questionsPrompt(domain, difficulty, count),
+        prompt: questionsPrompt(domain, difficulty, count, topics),
         effort: "low",
       });
       const qs = out.questions.map((q) => q.trim()).filter(Boolean);
       if (qs.length < count) throw new Error(`expected ${count} questions, got ${qs.length}`);
       return qs.slice(0, count);
     },
-    () => mockQuestions(domain, difficulty, count),
+    () => mockQuestions(domain, difficulty, count, topics),
   );
 }
 
