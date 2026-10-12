@@ -48,6 +48,23 @@ export const DEFAULT_PREFERENCES: Preferences = {
   count: 5,
 };
 
+/** How sessions adapt to what the user is weak at (src/lib/questions/pick.ts, src/lib/mastery.ts). */
+export const ADAPTIVE = {
+  /** Per-question score (0–10) that counts as a good answer. */
+  masteryScore: 8,
+  /** A topic is mastered after this many attempts... */
+  masteryMinAttempts: 2,
+  /** ...averaging masteryScore or more over this many recent attempts. */
+  masteryWindow: 3,
+  /** Share of each session spent on weak topics, and on reviewing mastered ones. The rest is unseen questions. */
+  weakShare: 0.6,
+  reviewShare: 0.15,
+  /** Questions from this many recent sessions are never repeated. */
+  recentSessions: 5,
+  /** A mastered topic comes back for review after this many days. */
+  reviewAfterDays: 21,
+};
+
 /** Answer content vs. delivery weighting for the final score. */
 export const ANSWER_WEIGHT = 0.7;
 export const COMMUNICATION_WEIGHT = 0.3;

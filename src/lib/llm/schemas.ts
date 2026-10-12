@@ -21,7 +21,7 @@ export const sessionConfigSchema = z.object({
 // ---- model output formats ----
 
 export const questionsOutput = z.object({
-  questions: z.array(z.string()),
+  questions: z.array(z.object({ text: z.string(), topic: z.string() })),
 });
 
 export const evaluationOutput = z.object({

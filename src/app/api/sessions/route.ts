@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
-import { generateQuestions } from "@/lib/llm/service";
 import { sessionConfigSchema } from "@/lib/llm/schemas";
+import { pickQuestions } from "@/lib/questions/pick";
 import { errorResponse } from "@/lib/sessions/store";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Preferences } from "@/types";
@@ -8,7 +8,7 @@ import type { Preferences } from "@/types";
 // Keeps one account from burning through the LLM budget.
 const DAILY_SESSION_LIMIT = 30;
 
-/** Start a session: generate questions and store an in-progress row. */
+/** Start a session: pick questions from the bank and store an in-progress row. */
 export async function POST(request: Request) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
@@ -31,8 +31,7 @@ export async function POST(request: Request) {
     }
 
     const config = parsed.data;
-    const { data: texts } = await generateQuestions(config.domain, config.difficulty, config.count, config.topics);
-    const questions = texts.map((text, i) => ({ id: `q${i + 1}`, text }));
+    const questions = await pickQuestions(user.id, config);
 
     // Users can't write sessions themselves (migration 0004), so the insert uses the service role.
     const { data, error } = await getSupabaseAdmin()

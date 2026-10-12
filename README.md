@@ -17,9 +17,16 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
 
 **One-time Supabase setup**
-1. SQL editor → run the files in `supabase/migrations/` in order (`0001_init.sql` creates `lms_profiles`, `lms_sessions`, RLS policies and a sign-up trigger; later ones add saved questions, friends, and server-only session writes; existing tables are untouched). Then copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
+1. SQL editor → run the files in `supabase/migrations/` in order (`0001_init.sql` creates `lms_profiles`, `lms_sessions`, RLS policies and a sign-up trigger; later ones add saved questions, friends, server-only session writes, and the question bank with its seed; existing tables are untouched). Then copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
 2. Authentication → URL configuration → site URL `http://localhost:3000`, redirect URL `http://localhost:3000/auth/callback`.
 3. Authentication → Providers → Google → enable, paste the client id/secret from Google Cloud (authorised redirect URI: `https://<project>.supabase.co/auth/v1/callback`).
+
+**How questions are picked**
+- Questions come from a bank in Supabase (`lms_questions`, seeded from `src/data/questions.ts`), not generated per session. When a session completes, each bank question's score is recorded in `lms_question_attempts`.
+- Sessions adapt to the user (`src/lib/questions/pick.ts`): about 60% from topics they haven't mastered, 25% questions they've never seen, 15% review of mastered topics not practised for 3 weeks. A topic is mastered after 2+ answers averaging 8/10 over the last 3. Questions from the last 5 sessions never repeat. Thresholds live in `ADAPTIVE` in `src/lib/constants.ts`.
+- Only when the bank can't fill a session (a custom topic, or everything mastered) does Claude write new questions; they're saved to the bank for everyone. Duplicates are skipped, and generated questions that most people skip are retired automatically.
+- Follow-ups are still generated live from the user's answer.
+- The profile shows each user's weak and mastered topics.
 
 **How scoring works**
 - Each answer goes to the eval agent (with the recorded audio for voice answers). It replies as soon as it has decided whether to ask a follow-up; scoring continues in the background and is collected when the session finishes.

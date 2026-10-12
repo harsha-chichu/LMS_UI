@@ -1,4 +1,5 @@
 import "server-only";
+import { TOPICS } from "@/lib/constants";
 import { generateStructured, llmDisabled } from "@/lib/llm/client";
 import { mockEvaluate, mockNarrative, mockQuestions } from "@/lib/llm/mock";
 import {
@@ -26,17 +27,34 @@ async function withFallback<T>(label: string, llm: () => Promise<T>, mock: () =>
   }
 }
 
-export function generateQuestions(domain: Domain, difficulty: Difficulty, count: number, topics: string[] = []) {
-  return withFallback(
+export interface GeneratedQuestion {
+  text: string;
+  /** Lowercase; one of the requested topics, or of the domain's TOPICS when none were given. */
+  topics: string[];
+}
+
+/** New questions, each tagged with a topic. `avoid` lists questions not to repeat. */
+export function generateQuestions(
+  domain: Domain,
+  difficulty: Difficulty,
+  count: number,
+  topics: string[] = [],
+  avoid: string[] = [],
+) {
+  const allowed = new Set((topics.length ? topics : TOPICS[domain]).map((t) => t.trim().toLowerCase()));
+  return withFallback<GeneratedQuestion[]>(
     "questions",
     async () => {
       const out = await generateStructured({
         schema: questionsOutput,
         system: INTERVIEWER_SYSTEM,
-        prompt: questionsPrompt(domain, difficulty, count, topics),
+        prompt: questionsPrompt(domain, difficulty, count, topics, avoid),
         effort: "low",
       });
-      const qs = out.questions.map((q) => q.trim()).filter(Boolean);
+      const qs = out.questions
+        .map((q) => ({ text: q.text.trim(), topic: q.topic.trim().toLowerCase() }))
+        .filter((q) => q.text)
+        .map((q) => ({ text: q.text, topics: allowed.has(q.topic) ? [q.topic] : [] }));
       if (qs.length < count) throw new Error(`expected ${count} questions, got ${qs.length}`);
       return qs.slice(0, count);
     },
