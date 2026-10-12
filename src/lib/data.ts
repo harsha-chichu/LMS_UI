@@ -4,7 +4,15 @@ import useSWR, { mutate } from "swr";
 import { applyAccent, DEFAULT_ACCENT } from "@/lib/accent";
 import { DEFAULT_PREFERENCES } from "@/lib/constants";
 import { getSupabase } from "@/lib/supabase/client";
-import type { Preferences, Profile, QuestionResult, Report, SessionConfig, SessionRow } from "@/types";
+import type {
+  Preferences,
+  Profile,
+  QuestionResult,
+  Report,
+  SavedQuestion,
+  SessionConfig,
+  SessionRow,
+} from "@/types";
 
 /**
  * Client-side data. Reads go straight to Supabase as the signed-in user (RLS
@@ -16,6 +24,7 @@ const KEYS = {
   profile: "profile",
   completed: "sessions:completed",
   session: (id: string) => `session:${id}`,
+  saved: "saved",
 };
 
 async function fetchProfile(): Promise<Profile> {
@@ -62,11 +71,77 @@ async function fetchSession(id: string): Promise<SessionRow | null> {
   return data as SessionRow | null;
 }
 
+async function fetchSaved(): Promise<SavedQuestion[]> {
+  const { data, error } = await getSupabase()
+    .from("lms_saved_questions")
+    .select("id, session_id, question_index, text, domain, difficulty, created_at")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as SavedQuestion[];
+}
+
 const swrOptions = { revalidateOnFocus: false };
 
 export const useProfile = () => useSWR(KEYS.profile, fetchProfile, swrOptions);
 export const useCompletedSessions = () => useSWR(KEYS.completed, fetchCompleted, swrOptions);
 export const useSessionRow = (id: string) => useSWR(KEYS.session(id), () => fetchSession(id), swrOptions);
+export const useSavedQuestions = () => useSWR(KEYS.saved, fetchSaved, swrOptions);
+
+export interface SaveTarget {
+  sessionId: string;
+  index: number;
+  text: string;
+  config: Pick<SessionConfig, "domain" | "difficulty">;
+}
+
+export const isSaved = (saved: SavedQuestion[], t: Pick<SaveTarget, "sessionId" | "index">) =>
+  saved.some((q) => q.session_id === t.sessionId && q.question_index === t.index);
+
+/** Saves or unsaves a question; the list updates at once and rolls back on failure. */
+export async function toggleSaved(target: SaveTarget, saved: SavedQuestion[]) {
+  const supabase = getSupabase();
+  const was = isSaved(saved, target);
+  const next = was
+    ? saved.filter((q) => !(q.session_id === target.sessionId && q.question_index === target.index))
+    : [
+        {
+          id: `pending:${target.sessionId}:${target.index}`,
+          session_id: target.sessionId,
+          question_index: target.index,
+          text: target.text,
+          domain: target.config.domain,
+          difficulty: target.config.difficulty,
+          created_at: new Date().toISOString(),
+        },
+        ...saved,
+      ];
+  await mutate(KEYS.saved, next, false);
+  try {
+    const { error } = was
+      ? await supabase
+          .from("lms_saved_questions")
+          .delete()
+          .eq("session_id", target.sessionId)
+          .eq("question_index", target.index)
+      : await supabase.from("lms_saved_questions").upsert(
+          {
+            session_id: target.sessionId,
+            question_index: target.index,
+            text: target.text,
+            domain: target.config.domain,
+            difficulty: target.config.difficulty,
+          },
+          { onConflict: "user_id,session_id,question_index", ignoreDuplicates: true },
+        );
+    if (error) throw error;
+  } catch (err) {
+    await mutate(KEYS.saved, saved, false);
+    throw err;
+  }
+  // Pick up the real row ids.
+  await mutate(KEYS.saved);
+}
 
 export async function updatePreferences(profile: Profile, patch: Partial<Preferences>) {
   const preferences = { ...profile.preferences, ...patch };

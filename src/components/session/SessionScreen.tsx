@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PillLink } from "@/components/common/PillButton";
+import { SaveButton } from "@/components/common/SaveButton";
 import { ListeningView } from "@/components/session/ListeningView";
 import { TextComposer } from "@/components/session/TextComposer";
 import {
@@ -217,9 +218,18 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
       <SessionHeader total={total} current={state.index} onClose={close} />
 
       <section className="mt-4 flex-1 md:mt-6" aria-live="polite">
-        <QuestionMeta>
-          question {state.index + 1} · {domainShort(config.domain)} · {config.difficulty}
-        </QuestionMeta>
+        <div className="flex items-start justify-between gap-3">
+          <QuestionMeta>
+            question {state.index + 1} · {domainShort(config.domain)} · {config.difficulty}
+          </QuestionMeta>
+          <SaveButton
+            sessionId={row.id}
+            index={state.index}
+            text={result.question.text}
+            config={config}
+            className="-mt-2 -mr-2"
+          />
+        </div>
         <QuestionText className="mt-2.5">{result.question.text}</QuestionText>
 
         {result.answer && <AnswerBubble className="mt-6">{result.answer.text || "🎙️ spoken answer"}</AnswerBubble>}
