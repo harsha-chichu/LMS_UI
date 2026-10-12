@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 const MIME_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
 
-function pickMimeType() {
+export function pickMimeType() {
   if (typeof MediaRecorder === "undefined") return null;
   return MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
 }
