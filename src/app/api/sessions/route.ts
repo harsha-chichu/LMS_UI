@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { generateQuestions } from "@/lib/llm/service";
 import { sessionConfigSchema } from "@/lib/llm/schemas";
 import { errorResponse } from "@/lib/sessions/store";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Preferences } from "@/types";
 
 // Keeps one account from burning through the LLM budget.
@@ -33,7 +34,8 @@ export async function POST(request: Request) {
     const { data: texts } = await generateQuestions(config.domain, config.difficulty, config.count, config.topics);
     const questions = texts.map((text, i) => ({ id: `q${i + 1}`, text }));
 
-    const { data, error } = await supabase
+    // Users can't write sessions themselves (migration 0004), so the insert uses the service role.
+    const { data, error } = await getSupabaseAdmin()
       .from("lms_sessions")
       .insert({ user_id: user.id, config, questions, results: [] })
       .select("id")

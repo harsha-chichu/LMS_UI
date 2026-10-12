@@ -17,7 +17,7 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
 
 **One-time Supabase setup**
-1. SQL editor → run `supabase/migrations/0001_init.sql` (creates `lms_profiles`, `lms_sessions`, RLS policies and a sign-up trigger; existing tables are untouched).
+1. SQL editor → run the files in `supabase/migrations/` in order (`0001_init.sql` creates `lms_profiles`, `lms_sessions`, RLS policies and a sign-up trigger; later ones add saved questions, friends, and server-only session writes; existing tables are untouched). Then copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
 2. Authentication → URL configuration → site URL `http://localhost:3000`, redirect URL `http://localhost:3000/auth/callback`.
 3. Authentication → Providers → Google → enable, paste the client id/secret from Google Cloud (authorised redirect URI: `https://<project>.supabase.co/auth/v1/callback`).
 
@@ -27,6 +27,7 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 - The report weights answers 70% and communication 30%. With recorded audio, the agent's grammar / pronunciation / fluency / clarity scores are blended into communication.
 - The agent keeps state in memory: restarting it mid-session drops in-flight evaluations (the fallback covers them).
 - API routes require a signed-in user; each account can start 30 sessions per 24 hours.
+- Users can read their own sessions but not write them: only the API routes do, with the service-role key, so scores on the friends leaderboard can't be edited from the browser.
 
 ## Screens
 

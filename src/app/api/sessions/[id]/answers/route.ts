@@ -33,7 +33,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     }
 
     const result = await submitAnswer(row, index, target, { text, mode, durationSec }, audio);
-    await saveResult(auth.supabase, row, index, result);
+    await saveResult(auth.user.id, row, index, result);
     return Response.json({ result });
   } catch (err) {
     return errorResponse(err);
