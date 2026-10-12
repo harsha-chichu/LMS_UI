@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { sessionConfigSchema } from "@/lib/llm/schemas";
 import { pickQuestions } from "@/lib/questions/pick";
@@ -21,21 +22,24 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "invalid request" }, { status: 400 });
 
   try {
+    const config = parsed.data;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count } = await supabase
-      .from("lms_sessions")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since);
-    timer.mark("limit");
-    if ((count ?? 0) >= DAILY_SESSION_LIMIT) {
+    const underLimit = Promise.resolve(
+      supabase.from("lms_sessions").select("id", { count: "exact", head: true }).gte("created_at", since),
+    ).then(({ count }) => (count ?? 0) < DAILY_SESSION_LIMIT);
+
+    // The limit check and the bank lookup run side by side; generating questions
+    // (the expensive part) still waits for the limit.
+    const [allowed, questions] = await Promise.all([
+      underLimit,
+      pickQuestions(user.id, config, { timer, canGenerate: underLimit }),
+    ]);
+    if (!allowed) {
       return Response.json(
         { error: `you've reached today's limit of ${DAILY_SESSION_LIMIT} sessions — come back tomorrow.` },
         { status: 429 },
       );
     }
-
-    const config = parsed.data;
-    const questions = await pickQuestions(user.id, config, timer);
 
     // Users can't write sessions themselves (migration 0004), so the insert uses the service role.
     const { data, error } = await getSupabaseAdmin()
@@ -48,17 +52,21 @@ export async function POST(request: Request) {
 
     // Remember the last-used settings as the user's defaults, keeping other
     // preferences (e.g. the accent colour). Topics are remembered per domain.
+    // Not needed for the session itself, so it runs after the response.
     // (The row always exists: created on sign-up, or backfilled by the migration.)
-    const { data: profile } = await supabase.from("lms_profiles").select("preferences").eq("id", user.id).maybeSingle();
-    const prev = (profile?.preferences ?? {}) as Partial<Preferences>;
-    const { topics = [], ...rest } = config;
-    await supabase
-      .from("lms_profiles")
-      .update({
-        preferences: { ...prev, ...rest, topicsByDomain: { ...prev.topicsByDomain, [config.domain]: topics } },
-      })
-      .eq("id", user.id);
-    timer.mark("prefs");
+    after(async () => {
+      const db = getSupabaseAdmin();
+      const { data: profile } = await db.from("lms_profiles").select("preferences").eq("id", user.id).maybeSingle();
+      const prev = (profile?.preferences ?? {}) as Partial<Preferences>;
+      const { topics = [], ...rest } = config;
+      const { error } = await db
+        .from("lms_profiles")
+        .update({
+          preferences: { ...prev, ...rest, topicsByDomain: { ...prev.topicsByDomain, [config.domain]: topics } },
+        })
+        .eq("id", user.id);
+      if (error) console.error("[sessions] saving preferences failed:", error.message);
+    });
 
     return Response.json({ id: data.id, questions }, { headers: { "Server-Timing": timer.header() } });
   } catch (err) {
