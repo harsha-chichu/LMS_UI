@@ -24,7 +24,7 @@ export function SetupScreen() {
   const activity = sessions && activityFromSessions(sessions);
 
   return (
-    <AppColumn className="flex flex-1 flex-col pb-8">
+    <AppColumn className="flex flex-1 flex-col">
       <header className="flex h-20 items-center justify-between md:h-24">
         <Logo />
         {user && activity && <UserCluster name={user.name} streak={currentStreak(activity)} />}
@@ -75,7 +75,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
 
   return (
     <>
-      <div className="mt-8 border-t border-line md:mt-10">
+      <div className="mt-6 border-t border-line md:mt-10">
         <Row label="domain">
           <Select
             items={DOMAINS.map((d) => ({ value: d.value, label: d.label }))}
@@ -117,7 +117,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
           />
         </Row>
 
-        <div className="flex items-center justify-between gap-6 py-6">
+        <div className="flex items-center justify-between gap-6 py-5 md:py-6">
           <div>
             <p className="text-[17px]">{mode === "voice" ? "answer by voice" : "answer by typing"}</p>
             <p className="mt-1 text-[14px] text-subtle">
@@ -144,7 +144,8 @@ function SetupForm({ initial }: { initial: Preferences }) {
         {mode === "voice" && <MicCheck />}
       </div>
 
-      <div className="mt-auto pt-10">
+      {/* Pinned so the main action stays on screen on phones; rows fade out underneath. */}
+      <div className="sticky bottom-0 z-10 mt-auto bg-black pt-6 pb-[max(16px,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-black before:to-transparent md:pt-10 md:pb-8">
         {error && (
           <p role="alert" className="mb-4 text-center text-[14px] text-brand">
             {error}
@@ -160,7 +161,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="border-b border-line py-6 md:py-7">
+    <div className="border-b border-line py-5 md:py-7">
       <div className="flex items-center justify-between gap-4">
         <span className="text-[17px]">{label}</span>
         {children}
