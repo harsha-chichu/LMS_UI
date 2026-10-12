@@ -3,6 +3,7 @@ import { sessionConfigSchema } from "@/lib/llm/schemas";
 import { pickQuestions } from "@/lib/questions/pick";
 import { errorResponse } from "@/lib/sessions/store";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { serverTimer } from "@/lib/timing";
 import type { Preferences } from "@/types";
 
 // Keeps one account from burning through the LLM budget.
@@ -10,7 +11,9 @@ const DAILY_SESSION_LIMIT = 30;
 
 /** Start a session: pick questions from the bank and store an in-progress row. */
 export async function POST(request: Request) {
+  const timer = serverTimer();
   const auth = await requireUser();
+  timer.mark("auth");
   if (!auth.ok) return auth.response;
   const { supabase, user } = auth;
 
@@ -23,6 +26,7 @@ export async function POST(request: Request) {
       .from("lms_sessions")
       .select("id", { count: "exact", head: true })
       .gte("created_at", since);
+    timer.mark("limit");
     if ((count ?? 0) >= DAILY_SESSION_LIMIT) {
       return Response.json(
         { error: `you've reached today's limit of ${DAILY_SESSION_LIMIT} sessions — come back tomorrow.` },
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const config = parsed.data;
-    const questions = await pickQuestions(user.id, config);
+    const questions = await pickQuestions(user.id, config, timer);
 
     // Users can't write sessions themselves (migration 0004), so the insert uses the service role.
     const { data, error } = await getSupabaseAdmin()
@@ -40,6 +44,7 @@ export async function POST(request: Request) {
       .select("id")
       .single();
     if (error) throw error;
+    timer.mark("insert");
 
     // Remember the last-used settings as the user's defaults, keeping other
     // preferences (e.g. the accent colour). Topics are remembered per domain.
@@ -53,8 +58,9 @@ export async function POST(request: Request) {
         preferences: { ...prev, ...rest, topicsByDomain: { ...prev.topicsByDomain, [config.domain]: topics } },
       })
       .eq("id", user.id);
+    timer.mark("prefs");
 
-    return Response.json({ id: data.id, questions });
+    return Response.json({ id: data.id, questions }, { headers: { "Server-Timing": timer.header() } });
   } catch (err) {
     return errorResponse(err);
   }

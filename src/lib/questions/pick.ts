@@ -3,6 +3,7 @@ import { ADAPTIVE } from "@/lib/constants";
 import { generateQuestions } from "@/lib/llm/service";
 import { type Attempt, attemptScore, type TopicMastery, topicMastery } from "@/lib/mastery";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import type { ServerTimer } from "@/lib/timing";
 import type { Question, SessionConfig } from "@/types";
 
 /**
@@ -73,7 +74,7 @@ function spreadPicker() {
   };
 }
 
-export async function pickQuestions(userId: string, config: SessionConfig): Promise<Question[]> {
+export async function pickQuestions(userId: string, config: SessionConfig, timer?: ServerTimer): Promise<Question[]> {
   const db = getSupabaseAdmin();
   const { domain, difficulty, count } = config;
   const chosen = (config.topics ?? []).map(norm);
@@ -99,6 +100,7 @@ export async function pickQuestions(userId: string, config: SessionConfig): Prom
   ]);
   if (bankRes.error) throw bankRes.error;
   if (attemptsRes.error) throw attemptsRes.error;
+  timer?.mark("bank");
   const bank = shuffle((bankRes.data ?? []) as BankQuestion[]);
   const attempts = (attemptsRes.data ?? []) as Attempt[];
 
@@ -161,6 +163,7 @@ export async function pickQuestions(userId: string, config: SessionConfig): Prom
     const avoid = seenFirst.slice(0, MAX_AVOID).map((q) => q.text);
 
     const generated = await saveGenerated(userId, config, missing, focus, avoid);
+    timer?.mark("generate");
     picker.take(generated, missing);
 
     // Still short (e.g. the LLM is down and the fallback only repeats the bank):
