@@ -46,6 +46,8 @@ export function useMicTest() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const urlRef = useRef<string | null>(null);
+  // Bumped by stop/unmount so a permission prompt answered late doesn't reopen the mic.
+  const runRef = useRef(0);
 
   const setUrl = useCallback((url: string | null) => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -73,11 +75,13 @@ export function useMicTest() {
       return false;
     }
     setStatus("requesting");
+    const run = ++runRef.current;
 
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
+      if (run !== runRef.current) return false;
       const name = err instanceof DOMException ? err.name : "";
       setStatus(
         name === "NotAllowedError" || name === "SecurityError"
@@ -86,6 +90,10 @@ export function useMicTest() {
             ? "no-device"
             : "error",
       );
+      return false;
+    }
+    if (run !== runRef.current) {
+      stream.getTracks().forEach((t) => t.stop());
       return false;
     }
     streamRef.current = stream;
@@ -158,6 +166,7 @@ export function useMicTest() {
   const stop = useCallback(
     () =>
       new Promise<void>((resolve) => {
+        runRef.current++;
         const rec = recorderRef.current;
         recorderRef.current = null;
         const finish = () => {
@@ -179,6 +188,7 @@ export function useMicTest() {
 
   useEffect(
     () => () => {
+      runRef.current++;
       const rec = recorderRef.current;
       if (rec && rec.state !== "inactive") {
         rec.onstop = null;

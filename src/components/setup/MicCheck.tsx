@@ -64,10 +64,10 @@ export function MicCheck() {
     finishingRef.current = false;
     setPhase("testing");
     if (!(await mic.start())) {
-      setPhase("idle");
+      if (!finishingRef.current) setPhase("idle");
       return;
     }
-    speech.start();
+    if (!finishingRef.current) speech.start();
   }
 
   // Done as soon as the phrase comes through, or after the time limit.
@@ -116,7 +116,7 @@ export function MicCheck() {
   else if (phase === "done" && result) status = RESULT_TEXT[result](heardText, speechError);
 
   return (
-    <div className="border-b border-line py-6 md:py-7">
+    <div className="border-t border-line py-6 md:py-7">
       <div className="flex items-center justify-between gap-4">
         <div>
           <span className="text-[17px]">mic check</span>
