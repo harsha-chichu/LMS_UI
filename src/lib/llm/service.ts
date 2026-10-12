@@ -85,6 +85,7 @@ export function evaluateAnswer(input: {
         score: Math.round(clamp(out.score, 0, 10) * 10) / 10,
         feedback: out.feedback.trim(),
         nextTime: out.next_time.trim(),
+        suggestedAnswer: out.suggested_answer.trim() || undefined,
         needsFollowUp: followUp !== null,
         followUp,
       };

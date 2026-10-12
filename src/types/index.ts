@@ -54,6 +54,8 @@ export interface Evaluation {
   nextTime: string;
   needsFollowUp: boolean;
   followUp: string | null;
+  /** A model answer that applies the feedback. Unset on older sessions. */
+  suggestedAnswer?: string;
   strengths?: string[];
   weaknesses?: string[];
 }
@@ -125,6 +127,10 @@ export interface Report {
     mode: AnswerMode | null;
     feedback: string;
     nextTime: string;
+    /** What the candidate said or typed. Unset on reports from before this was stored. */
+    answer?: string | null;
+    followUps?: { question: string; answer: string | null }[];
+    suggestedAnswer?: string | null;
   }[];
 }
 

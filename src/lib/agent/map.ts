@@ -30,6 +30,7 @@ export function toEvaluation(result: AgentEvaluationResult): Evaluation {
     nextTime: weakness ? lower(firstSentence(weakness)) : "",
     needsFollowUp: false,
     followUp: null,
+    suggestedAnswer: result.suggested_answer?.trim() || undefined,
     strengths: result.strengths,
     weaknesses: result.weaknesses,
   };

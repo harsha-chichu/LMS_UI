@@ -107,6 +107,7 @@ score the answer content from 0 to 10 (one decimal allowed) for correctness, dep
 
 feedback: one or two sentences on what worked and what was missing.
 next_time: one actionable sentence for the next attempt.
+suggested_answer: a model answer to the question, written the way the candidate should have said it out loud — first person, plain prose, roughly 120–250 words, calibrated to the difficulty. keep what they got right and apply everything in feedback and next_time (if they missed edge cases, cover them).${input.followUp ? " fold in what the follow-up was probing." : ""}
 ${followUpPolicy}
 a follow-up, when asked, is a single short question a real interviewer would ask next.`;
 }

@@ -14,6 +14,8 @@ export interface AgentEvaluationResult {
   strengths: string[];
   weaknesses: string[];
   followup_evaluation: string | null;
+  /** Older agent builds don't send this. */
+  suggested_answer?: string | null;
 }
 
 export interface AgentRun {
