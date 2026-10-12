@@ -93,6 +93,13 @@ export function ProfileView() {
 
       <SavedSection sessions={sessions} />
 
+      <Section className="py-2">
+        <Link href="/friends" className="flex w-full items-center justify-between py-4 text-[16px] hover:text-white/80">
+          friends
+          <ChevronRight className="size-4 text-subtle" />
+        </Link>
+      </Section>
+
       <Section>
         <SectionLabel>preferences</SectionLabel>
         <div className="mt-4 flex items-center justify-between gap-4 py-2">

@@ -143,6 +143,28 @@ export interface SavedQuestion {
   created_at: string;
 }
 
+export type FriendRelation = "none" | "outgoing" | "incoming" | "friends";
+
+export interface UserSearchResult {
+  id: string;
+  name: string;
+  relation: FriendRelation;
+}
+
+export interface FriendRequest {
+  id: string;
+  name: string;
+  direction: "incoming" | "outgoing";
+}
+
+/** You or an accepted friend, with completed session scores (newest first). */
+export interface FriendOverview {
+  id: string;
+  name: string;
+  is_me: boolean;
+  sessions: { total: number; completed_at: string }[];
+}
+
 export interface Profile {
   id: string;
   name: string;

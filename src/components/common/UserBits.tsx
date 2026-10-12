@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Flame } from "lucide-react";
+import { FriendsLink } from "@/components/friends/FriendsLink";
 import { cn } from "@/lib/utils";
 
 export function Avatar({ name, size = 44, className }: { name: string; size?: number; className?: string }) {
@@ -38,6 +39,7 @@ export function UserCluster({ name, streak }: { name: string; streak: number }) 
   return (
     <div className="flex items-center gap-4">
       <StreakCount days={streak} />
+      <FriendsLink />
       <Link href="/profile" aria-label="Your profile" className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
         <Avatar name={name} size={44} />
       </Link>

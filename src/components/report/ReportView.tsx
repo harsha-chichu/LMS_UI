@@ -36,12 +36,24 @@ export function ReportView() {
   return <ReportBody report={row.report} sessionId={row.id} />;
 }
 
-function ReportBody({ report, sessionId }: { report: Report; sessionId: string }) {
+/** A finished report. Friends get a read-only view without save or practice actions. */
+export function ReportBody({
+  report,
+  sessionId,
+  friend,
+}: {
+  report: Report;
+  sessionId: string;
+  friend?: { id: string; name: string };
+}) {
   const { config, communication: comm } = report;
 
   return (
     <AppColumn className="pb-12">
-      <BackHeader title="session report" href="/profile" />
+      <BackHeader
+        title={friend ? `${friend.name}’s report` : "session report"}
+        href={friend ? `/friends/${friend.id}` : "/profile"}
+      />
 
       <div className="flex flex-col items-center pt-4 pb-7">
         <ScoreRing score={report.total} />
@@ -129,7 +141,9 @@ function ReportBody({ report, sessionId }: { report: Report; sessionId: string }
                     <span className="text-[12px] text-subtle">
                       {q.score === null ? "skipped" : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
                     </span>
-                    <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />
+                    {!friend && (
+                      <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />
+                    )}
                   </div>
                   {q.feedback && (
                     <div>
@@ -150,17 +164,19 @@ function ReportBody({ report, sessionId }: { report: Report; sessionId: string }
         </Accordion>
       </Section>
 
-      <div className="border-t border-line pt-7">
-        <PracticeAgain report={report} />
-        <nav className="mt-5 flex justify-center gap-6 text-[13px] text-white/70">
-          <Link href="/setup" className="hover:text-white">
-            new session
-          </Link>
-          <Link href="/profile" className="hover:text-white">
-            view progress
-          </Link>
-        </nav>
-      </div>
+      {!friend && (
+        <div className="border-t border-line pt-7">
+          <PracticeAgain report={report} />
+          <nav className="mt-5 flex justify-center gap-6 text-[13px] text-white/70">
+            <Link href="/setup" className="hover:text-white">
+              new session
+            </Link>
+            <Link href="/profile" className="hover:text-white">
+              view progress
+            </Link>
+          </nav>
+        </div>
+      )}
     </AppColumn>
   );
 }
