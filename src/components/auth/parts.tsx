@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft } from "lucide-react";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { Logo } from "@/components/brand/Logo";
+import { PASSWORD_RULES } from "@/lib/credentials";
 import { getSupabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -119,6 +120,23 @@ export function FormError({ children }: { children: ReactNode }) {
   );
 }
 
+/** The password rules, ticked off as the user types. */
+export function PasswordChecklist({ password }: { password: string }) {
+  return (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px]" aria-label="password requirements">
+      {PASSWORD_RULES.map((rule) => {
+        const ok = rule.test(password);
+        return (
+          <li key={rule.label} className={cn("flex items-center gap-1.5", ok ? "text-white/90" : "text-subtle")}>
+            <Check className={cn("size-3.5 shrink-0", ok ? "text-brand" : "opacity-30")} strokeWidth={2} />
+            {rule.label}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** Supabase messages are sentence-case and sometimes cryptic; keep the product voice. */
 export function friendlyAuthError(message: string) {
   const m = message.toLowerCase();
@@ -127,7 +145,14 @@ export function friendlyAuthError(message: string) {
   if (m.includes("already registered")) return "an account with that email already exists — log in instead.";
   if (m.includes("provider is not enabled")) return "google sign-in isn't set up yet — use email for now.";
   if (m.includes("rate limit")) return "too many attempts — wait a minute and try again.";
+  if (m.includes("pwned") || m.includes("known to be weak") || m.includes("easy to guess"))
+    return "that password has shown up in a data breach — pick a different one.";
+  if (m.includes("password should contain") || m.includes("password should be at least"))
+    return "that password is too weak — use upper and lowercase letters, a number and a symbol.";
+  if (m.includes("same as the old") || m.includes("different from the old")) return "pick a password you haven't used here before.";
   if (m.includes("password")) return m;
+  if (m.includes("email") && (m.includes("invalid") || m.includes("not authorized") || m.includes("validate")))
+    return "enter a valid email address, like you@example.com.";
   return "something went wrong — try again.";
 }
 
