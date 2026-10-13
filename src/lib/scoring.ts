@@ -124,6 +124,9 @@ export function buildReport(input: {
       nextTime: r.skipped
         ? "even a rough first answer earns points — try one sentence on the core idea."
         : (r.evaluation?.nextTime ?? ""),
+      answer: r.answer?.text ?? null,
+      followUps: r.followUps.map((f) => ({ question: f.question, answer: f.answer?.text ?? null })),
+      suggestedAnswer: r.evaluation?.suggestedAnswer ?? null,
     })),
   };
 }

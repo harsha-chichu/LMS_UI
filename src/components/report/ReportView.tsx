@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Check, Lightbulb } from "lucide-react";
+import { ArrowUpRight, Check, Lightbulb, Sparkles } from "lucide-react";
 import { useParams } from "next/navigation";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
@@ -148,6 +148,19 @@ export function ReportBody({
                       <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />
                     )}
                   </div>
+                  {q.answer && (
+                    <div>
+                      <p className="text-[12px] text-subtle">{friend ? "their answer" : "your answer"}</p>
+                      <p className="mt-1 leading-relaxed whitespace-pre-line text-white/70">{q.answer}</p>
+                    </div>
+                  )}
+                  {q.followUps?.map((f, j) => (
+                    <div key={j} className="border-l border-line pl-3">
+                      <p className="text-[12px] text-subtle">follow-up</p>
+                      <p className="mt-1 leading-relaxed text-white/90">{f.question}</p>
+                      <p className="mt-1.5 leading-relaxed whitespace-pre-line text-white/70">{f.answer ?? "skipped"}</p>
+                    </div>
+                  ))}
                   {q.feedback && (
                     <div>
                       <p className="text-[12px] text-subtle">feedback</p>
@@ -158,6 +171,15 @@ export function ReportBody({
                     <div>
                       <p className="text-[12px] text-subtle">next time</p>
                       <p className="mt-1 leading-relaxed text-white/90">{q.nextTime}</p>
+                    </div>
+                  )}
+                  {q.suggestedAnswer && (
+                    <div className="rounded-xl border border-line bg-white/[0.03] p-3.5">
+                      <p className="flex items-center gap-1.5 text-[12px] text-subtle">
+                        <Sparkles className="size-3.5" strokeWidth={1.75} />
+                        suggested answer
+                      </p>
+                      <p className="mt-1.5 leading-relaxed whitespace-pre-line text-white/90">{q.suggestedAnswer}</p>
                     </div>
                   )}
                 </div>
