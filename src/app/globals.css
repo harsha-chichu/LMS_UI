@@ -126,7 +126,7 @@
 }
 
 /* ---- streak flame (components/common/StreakFlame.tsx) ---- */
-/* Fills come from the SVG gradients; this is the motion and the glow. */
+/* The shape motion is SVG morphing in the component; this is the glow and embers. */
 
 .flame {
   animation: flame-glow 1.8s ease-in-out infinite;
@@ -139,15 +139,6 @@
 .flame-halo {
   animation: flame-halo 1.8s ease-in-out infinite;
 }
-.flame-outer {
-  animation: flame-sway 1.6s ease-in-out infinite;
-}
-.flame-middle {
-  animation: flame-sway 1.1s ease-in-out -0.4s infinite reverse;
-}
-.flame-core {
-  animation: flame-flicker 0.8s ease-in-out -0.2s infinite;
-}
 .flame-ember {
   fill: color-mix(in oklch, var(--brand) 40%, white);
   opacity: 0;
@@ -158,59 +149,26 @@
   animation-duration: 1.8s;
 }
 
-@keyframes flame-sway {
-  0%,
-  100% {
-    transform: scale(1, 1) skewX(0deg);
-  }
-  25% {
-    transform: scale(0.96, 1.06) skewX(-3deg);
-  }
-  50% {
-    transform: scale(1.03, 0.96) skewX(2deg);
-  }
-  75% {
-    transform: scale(0.98, 1.04) skewX(-1.5deg);
-  }
-}
-
-@keyframes flame-flicker {
-  0%,
-  100% {
-    transform: scale(1, 1);
-    opacity: 1;
-  }
-  30% {
-    transform: scale(0.88, 1.14);
-    opacity: 0.85;
-  }
-  60% {
-    transform: scale(1.06, 0.9);
-  }
-}
-
 @keyframes flame-halo {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.4;
     transform: scale(1);
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1.08);
+    opacity: 0.7;
+    transform: scale(1.06);
   }
 }
 
 @keyframes flame-glow {
-  /* srgb so the glow keeps the accent's hue while it pulses */
+  /* A wide, soft glow only, so the flame's own edge stays sharp. srgb keeps the hue steady. */
   0%,
   100% {
-    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--brand) 80%, transparent))
-      drop-shadow(0 0 6px color-mix(in srgb, var(--brand) 45%, transparent));
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--brand) 45%, transparent));
   }
   50% {
-    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--brand) 100%, transparent))
-      drop-shadow(0 0 10px color-mix(in srgb, var(--brand) 70%, transparent));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--brand) 75%, transparent));
   }
 }
 
@@ -237,6 +195,6 @@
     animation: none;
   }
   .flame {
-    filter: drop-shadow(0 0 3px var(--brand)) drop-shadow(0 0 8px color-mix(in srgb, var(--brand) 55%, transparent));
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--brand) 60%, transparent));
   }
 }
