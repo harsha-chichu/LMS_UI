@@ -10,14 +10,14 @@ import {
 import { agentDomain, toEvaluation } from "@/lib/agent/map";
 import { evaluateAnswer, writeNarrative } from "@/lib/llm/service";
 import { emptyResult as blank, pendingFollowUp } from "@/lib/sessions/progress";
-import { buildReport } from "@/lib/scoring";
+import { buildReport, plainNarrative } from "@/lib/scoring";
 import { computeSpeechMetrics } from "@/lib/speech-metrics";
-import type { Evaluation, QuestionResult, Report, SessionConfig, SessionRow, Turn } from "@/types";
+import type { QuestionResult, Report, SessionConfig, SessionRow, Turn } from "@/types";
 
 /**
  * Per-question scoring. The eval agent is used when configured; any agent
- * failure falls back to the built-in Claude evaluator so a session never
- * gets stuck.
+ * failure falls back to the built-in Claude evaluator. If Claude fails too,
+ * the answer is kept unscored and retried when the session finishes.
  */
 
 export type Target = "main" | "followup";
@@ -33,7 +33,7 @@ export class SessionError extends Error {
 
 const MAX_FOLLOW_UPS = 2;
 
-export function emptyResult(row: SessionRow, index: number): QuestionResult {
+function emptyResult(row: SessionRow, index: number): QuestionResult {
   return row.results[index] ?? blank(row.questions[index]);
 }
 
@@ -41,17 +41,32 @@ function warn(label: string, err: unknown) {
   console.warn(`[agent:${label}] falling back to claude:`, err instanceof Error ? err.message : err);
 }
 
-/** Score with Claude using the main answer plus the latest answered follow-up. */
-async function claudeEvaluate(config: SessionConfig, r: QuestionResult, allowFollowUp: boolean) {
+/**
+ * Score with Claude using the main answer plus the latest answered follow-up,
+ * and record the outcome on `r`. Returns the evaluation, or null if Claude failed.
+ */
+async function claudeScore(config: SessionConfig, r: QuestionResult, allowFollowUp: boolean) {
   const answered = [...r.followUps].reverse().find((f) => f.answer);
-  const { data } = await evaluateAnswer({
-    domain: config.domain,
-    difficulty: config.difficulty,
-    question: r.question.text,
-    answer: r.answer!.text,
-    followUp: answered ? { question: answered.question, answer: answered.answer!.text } : undefined,
-  });
-  return allowFollowUp ? data : { ...data, needsFollowUp: false, followUp: null };
+  try {
+    const data = await evaluateAnswer({
+      domain: config.domain,
+      difficulty: config.difficulty,
+      question: r.question.text,
+      answer: r.answer!.text,
+      followUp: answered ? { question: answered.question, answer: answered.answer!.text } : undefined,
+    });
+    r.evaluation = allowFollowUp ? data : { ...data, needsFollowUp: false, followUp: null };
+    r.scoring = { engine: "claude", status: "done" };
+    return r.evaluation;
+  } catch (err) {
+    console.warn("[claude:evaluate] scoring failed:", err instanceof Error ? err.message : err);
+    // A score Claude already gave the main answer still stands; otherwise it's unscored for now.
+    if (!(r.evaluation && r.scoring?.engine === "claude")) {
+      r.evaluation = undefined;
+      r.scoring = { engine: "claude", status: "failed" };
+    }
+    return null;
+  }
 }
 
 /** Fold an agent response into the result (transcript, follow-up, scoring state). */
@@ -121,10 +136,8 @@ export async function submitAnswer(
     target === "main"
       ? { ...r, answer: turn }
       : { ...r, followUps: r.followUps.map((f, i, all) => (i === all.length - 1 ? { ...f, answer: turn } : f)) };
-  const evaluation = await claudeEvaluate(config, next, target === "main");
-  next.evaluation = evaluation;
-  next.scoring = { engine: "claude", status: "done" };
-  if (target === "main" && evaluation.needsFollowUp && evaluation.followUp && next.followUps.length < MAX_FOLLOW_UPS) {
+  const evaluation = await claudeScore(config, next, target === "main");
+  if (target === "main" && evaluation?.needsFollowUp && evaluation.followUp && next.followUps.length < MAX_FOLLOW_UPS) {
     next.followUps = [...next.followUps, { question: evaluation.followUp, skipped: false }];
   }
   return next;
@@ -151,10 +164,7 @@ export async function skip(row: SessionRow, index: number, target: Target): Prom
     }
   }
   // Claude already scored the main answer; on agent failure, score it now.
-  if (r.scoring?.engine !== "claude" || !r.evaluation) {
-    next.evaluation = await claudeEvaluate(row.config, next, false);
-    next.scoring = { engine: "claude", status: "done" };
-  }
+  if (r.scoring?.engine !== "claude" || !r.evaluation) await claudeScore(row.config, next, false);
   return next;
 }
 
@@ -186,8 +196,7 @@ async function settleScores(row: SessionRow, results: QuestionResult[], timeoutM
 
   for (const r of results) {
     if (!r.skipped && r.answer && (!r.evaluation || r.scoring?.status !== "done")) {
-      r.evaluation = (await claudeEvaluate(row.config, r, false)) satisfies Evaluation;
-      r.scoring = { engine: "claude", status: "done" };
+      await claudeScore(row.config, r, false);
     }
   }
 }
@@ -205,11 +214,14 @@ export async function finalize(row: SessionRow): Promise<{ results: QuestionResu
 
   const turns = results.flatMap((r) => [r.answer, ...r.followUps.map((f) => f.answer)]).filter((t): t is Turn => !!t);
   const metrics = computeSpeechMetrics(turns);
-  const { data: narrative } = await writeNarrative({
+  const narrative = await writeNarrative({
     domain: row.config.domain,
     difficulty: row.config.difficulty,
     results,
     metrics,
+  }).catch((err) => {
+    console.warn("[claude:report] using a plain summary:", err instanceof Error ? err.message : err);
+    return plainNarrative();
   });
   const report = buildReport({ id: row.id, config: row.config, results, metrics, narrative });
   return { results, report };

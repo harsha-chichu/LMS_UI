@@ -109,7 +109,8 @@ export interface Report {
   config: SessionConfig;
   total: number;
   answersScore: number;
-  communicationScore: number;
+  /** Null when there was nothing to rate it on; the total is then the answers score alone. */
+  communicationScore: number | null;
   followUps: number;
   summary: string;
   strengths: string[];

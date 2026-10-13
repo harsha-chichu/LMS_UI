@@ -173,7 +173,7 @@ export async function pickQuestions(
     timer?.mark("generate");
     picker.take(generated, missing);
 
-    // Still short (e.g. the LLM is down and the fallback only repeats the bank):
+    // Still short (e.g. Claude is down or only repeated bank questions):
     // reuse the least recently asked questions rather than run a short session.
     const leftovers = [...bank].sort(
       (a, b) => (latest.get(a.id)?.created_at ?? "").localeCompare(latest.get(b.id)?.created_at ?? ""),
@@ -194,7 +194,10 @@ async function saveGenerated(
   avoid: string[],
 ): Promise<BankQuestion[]> {
   const db = getSupabaseAdmin();
-  const { data: questions } = await generateQuestions(config.domain, config.difficulty, count, topics, avoid);
+  const questions = await generateQuestions(config.domain, config.difficulty, count, topics, avoid).catch((err) => {
+    console.warn("[questions] generation failed, reusing the bank:", err instanceof Error ? err.message : err);
+    return [];
+  });
   if (!questions.length) return [];
 
   const { error } = await db.from("lms_questions").upsert(

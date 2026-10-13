@@ -12,7 +12,7 @@ export function pendingFollowUp(r: QuestionResult) {
 }
 
 /** A question is resolved once it's skipped, or answered with no follow-up waiting. */
-export function isResolved(r: QuestionResult | undefined) {
+function isResolved(r: QuestionResult | undefined) {
   return !!r && (r.skipped || (!!r.answer && !pendingFollowUp(r)));
 }
 

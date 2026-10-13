@@ -8,7 +8,7 @@ function countPhrase(text: string, phrase: string) {
   return text.match(pattern)?.length ?? 0;
 }
 
-export function wordCount(text: string) {
+function wordCount(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 

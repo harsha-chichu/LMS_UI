@@ -1,13 +1,24 @@
 import { ANSWER_WEIGHT, COMMUNICATION_WEIGHT } from "@/lib/constants";
 import type { AgentCommunication, MetricReading, QuestionResult, Report, SessionConfig, SpeechMetrics } from "@/types";
 
-/** The qualitative half of a report, written by the LLM (or the mock). */
+/** The qualitative half of a report, written by the LLM. */
 export interface ReportNarrative {
   summary: string;
   strengths: string[];
   improvements: string[];
   clarity: MetricReading;
   confidence: MetricReading;
+}
+
+/** Used when the LLM can't write the narrative. Level 0 readings aren't counted in the score. */
+export function plainNarrative(): ReportNarrative {
+  return {
+    summary: "we couldn't write a summary for this session — your per-question scores and feedback are below.",
+    strengths: [],
+    improvements: [],
+    clarity: { level: 0, label: "not rated" },
+    confidence: { level: 0, label: "not rated" },
+  };
 }
 
 function paceReading(wpm: number | null): MetricReading | null {
@@ -75,28 +86,37 @@ export function buildReport(input: {
   const { id, config, results, metrics, narrative } = input;
 
   // Skipped questions count as 0 so skipping isn't a way to raise the score.
-  const perQuestion = results.map((r) => (r.skipped || !r.evaluation ? 0 : r.evaluation.score));
+  // Answers we couldn't score (evaluator down) are left out instead.
+  const counted = results.filter((r) => r.skipped || r.evaluation);
+  const perQuestion = counted.map((r) => (r.skipped || !r.evaluation ? 0 : r.evaluation.score));
   const answersScore = Math.round(
-    (perQuestion.reduce((a, b) => a + b, 0) / Math.max(results.length, 1)) * 10,
+    (perQuestion.reduce((a, b) => a + b, 0) / Math.max(counted.length, 1)) * 10,
   );
 
   const comms = agentCommunication(results);
   const clarity = comms.length ? clarityFromAgent(comms) : narrative.clarity;
   const pace = paceReading(metrics.wpm);
   const fillers = fillerReading(metrics);
+  // Level 0 means "not measured" (e.g. no narrative), so it doesn't count.
   const levels = [clarity.level, narrative.confidence.level, pace?.level, fillers?.level].filter(
-    (l): l is number => typeof l === "number",
+    (l): l is number => typeof l === "number" && l > 0,
   );
-  let communicationScore = Math.round((levels.reduce((a, b) => a + b, 0) / (levels.length * 5)) * 100);
+  let communicationScore = levels.length
+    ? Math.round((levels.reduce((a, b) => a + b, 0) / (levels.length * 5)) * 100)
+    : 0;
   if (comms.length) {
     // Blend in what the agent heard in the audio (grammar, pronunciation, fluency, clarity; each 0–10).
     const heard = mean(
       comms.map((c) => (c.grammar_score + c.pronunciation_score + c.fluency_score + c.clarity_score) / 4),
     );
-    communicationScore = Math.round((communicationScore + heard * 10) / 2);
+    communicationScore = levels.length ? Math.round((communicationScore + heard * 10) / 2) : Math.round(heard * 10);
   }
 
-  const total = Math.round(answersScore * ANSWER_WEIGHT + communicationScore * COMMUNICATION_WEIGHT);
+  // Nothing to rate communication on: the total is the answers score alone.
+  const measured = levels.length > 0 || comms.length > 0;
+  const total = measured
+    ? Math.round(answersScore * ANSWER_WEIGHT + communicationScore * COMMUNICATION_WEIGHT)
+    : answersScore;
 
   return {
     id,
@@ -104,7 +124,7 @@ export function buildReport(input: {
     config,
     total,
     answersScore,
-    communicationScore,
+    communicationScore: measured ? communicationScore : null,
     followUps: results.reduce((n, r) => n + r.followUps.length, 0),
     summary: narrative.summary,
     strengths: narrative.strengths,
@@ -120,7 +140,9 @@ export function buildReport(input: {
       text: r.question.text,
       score: r.skipped || !r.evaluation ? null : round1(r.evaluation.score),
       mode: r.answer?.mode ?? null,
-      feedback: r.skipped ? "skipped — no answer recorded." : (r.evaluation?.feedback ?? ""),
+      feedback: r.skipped
+        ? "skipped — no answer recorded."
+        : (r.evaluation?.feedback ?? "we couldn't score this answer — the evaluator was unavailable."),
       nextTime: r.skipped
         ? "even a rough first answer earns points — try one sentence on the core idea."
         : (r.evaluation?.nextTime ?? ""),

@@ -22,7 +22,7 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 3. Authentication → Providers → Google → enable, paste the client id/secret from Google Cloud (authorised redirect URI: `https://<project>.supabase.co/auth/v1/callback`).
 
 **How questions are picked**
-- Questions come from a bank in Supabase (`lms_questions`, seeded from `src/data/questions.ts`), not generated per session. When a session completes, each bank question's score is recorded in `lms_question_attempts`.
+- Questions come from a bank in Supabase (`lms_questions`, seeded by `supabase/migrations/0006_seed_question_bank.sql`), not generated per session. When a session completes, each bank question's score is recorded in `lms_question_attempts`.
 - Sessions adapt to the user (`src/lib/questions/pick.ts`): about 60% from topics they haven't mastered, 25% questions they've never seen, 15% review of mastered topics not practised for 3 weeks. A topic is mastered after 2+ answers averaging 8/10 over the last 3. Questions from the last 5 sessions never repeat. Thresholds live in `ADAPTIVE` in `src/lib/constants.ts`.
 - Only when the bank can't fill a session (a custom topic, or everything mastered) does Claude write new questions; they're saved to the bank for everyone. Duplicates are skipped, and generated questions that most people skip are retired automatically.
 - Follow-ups are still generated live from the user's answer.
@@ -30,7 +30,7 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 
 **How scoring works**
 - Each answer goes to the eval agent (with the recorded audio for voice answers). It replies as soon as it has decided whether to ask a follow-up; scoring continues in the background and is collected when the session finishes.
-- If the agent is down or errors, the built-in Claude evaluator (`src/lib/llm/`) scores instead, so a session never gets stuck. `LMS_MOCK_LLM=1` swaps Claude for a heuristic too.
+- If the agent is down or errors, the built-in Claude evaluator (`src/lib/llm/`) scores instead. If that fails too, the answer is kept and retried when the session finishes; if it still can't be scored, the report marks it "not scored" and leaves it out of the average.
 - The report weights answers 70% and communication 30%. With recorded audio, the agent's grammar / pronunciation / fluency / clarity scores are blended into communication.
 - The agent keeps state in memory: restarting it mid-session drops in-flight evaluations (the fallback covers them).
 - API routes require a signed-in user; each account can start 30 sessions per 24 hours.
@@ -60,11 +60,10 @@ src/
 │  ├─ agent/             HTTP client + mapping for the Python eval agent
 │  ├─ sessions/          per-question scoring engine (agent → Claude fallback), persistence
 │  ├─ supabase/          browser + server clients
-│  ├─ llm/               Claude client, prompts, schemas, mock fallback
+│  ├─ llm/               Claude client, prompts, schemas
 │  ├─ data.ts            SWR hooks (profile, sessions) + session API calls
 │  ├─ scoring.ts         report assembly + 70/30 weighting
 │  └─ stats.ts           streaks, heatmap, trend
-├─ data/                 fallback question bank
 └─ types/
 supabase/migrations/     database schema
 agents/eval_agent/       the evaluation agent (separate repo); server.py is its HTTP wrapper
