@@ -125,9 +125,105 @@
   animation: caret-blink 1s steps(1) infinite;
 }
 
+/* ---- streak flame (components/common/StreakFlame.tsx) ---- */
+
+.flame {
+  animation: flame-glow 2.2s ease-in-out infinite;
+}
+.flame path,
+.flame circle {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.flame-outer {
+  fill: var(--brand);
+  animation: flame-sway 1.7s ease-in-out infinite;
+}
+/* Blur is in SVG user units, so the softness scales with the icon. */
+.flame-middle {
+  fill: color-mix(in oklch, var(--brand) 55%, white);
+  filter: blur(0.7px);
+  animation: flame-sway 1.2s ease-in-out -0.4s infinite reverse;
+}
+.flame-core {
+  fill: color-mix(in oklch, var(--brand) 12%, white);
+  filter: blur(0.5px);
+  animation: flame-flicker 0.9s ease-in-out -0.2s infinite;
+}
+.flame-ember {
+  fill: color-mix(in oklch, var(--brand) 40%, white);
+  opacity: 0;
+  animation: flame-ember 2.4s ease-out infinite;
+}
+.flame-ember-2 {
+  animation-delay: -1.3s;
+  animation-duration: 2s;
+}
+
+@keyframes flame-sway {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  25% {
+    transform: scale(0.96, 1.05) skewX(-3deg);
+  }
+  50% {
+    transform: scale(1.02, 0.97) skewX(2deg);
+  }
+  75% {
+    transform: scale(0.98, 1.04) skewX(-1.5deg);
+  }
+}
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scale(1, 1);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(0.9, 1.12);
+    opacity: 0.9;
+  }
+  60% {
+    transform: scale(1.05, 0.92);
+  }
+}
+
+@keyframes flame-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px color-mix(in oklch, var(--brand) 60%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 5px color-mix(in oklch, var(--brand) 85%, transparent));
+  }
+}
+
+@keyframes flame-ember {
+  0% {
+    transform: translate(0, 4px) scale(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(1.5px, -9px) scale(0.3);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ring-pulse,
-  .animate-caret {
+  .animate-caret,
+  .flame,
+  .flame path,
+  .flame circle {
     animation: none;
+  }
+  .flame {
+    filter: drop-shadow(0 0 3px color-mix(in oklch, var(--brand) 70%, transparent));
   }
 }
