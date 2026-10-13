@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PillLink } from "@/components/common/PillButton";
@@ -104,6 +103,8 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   );
 
   const skip = async () => {
+    // Don't throw away a half-typed answer by accident.
+    if (input === "text" && state.draft.trim() && !window.confirm("discard your typed answer and skip?")) return;
     dispatch({ type: "submitting", text: null });
     try {
       dispatch({ type: "synced", result: await sendSkip(row.id, state.index, state.target) });
@@ -151,12 +152,6 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   const submitDraft = () => {
     const text = state.draft.trim();
     if (text) void submit(text, "text", 0, null);
-  };
-
-  // "next question" sends whatever is typed; with nothing typed it skips.
-  const next = () => {
-    if (input === "text" && state.draft.trim()) return submitDraft();
-    void skip();
   };
 
   const close = async () => {
@@ -286,7 +281,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
           />
         )}
 
-        <div className="mt-5 flex items-center justify-between text-[14px] md:text-[15px]">
+        <div className="mt-5 flex justify-center text-[14px] md:text-[15px]">
           <button
             type="button"
             disabled={submitting}
@@ -294,15 +289,6 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
             className="text-subtle hover:text-white disabled:opacity-40"
           >
             {state.target === "followup" ? "skip follow-up" : "skip question"}
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={next}
-            className="inline-flex items-center gap-2 text-subtle hover:text-white disabled:opacity-40"
-          >
-            {state.index + 1 === total && state.target === "main" ? "finish" : "next question"}
-            <ArrowRight className="size-4" />
           </button>
         </div>
       </div>
