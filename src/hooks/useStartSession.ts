@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createSession } from "@/lib/data";
+import { createSession, retrySession } from "@/lib/data";
 import type { SessionConfig } from "@/types";
 
 /**
@@ -16,11 +16,16 @@ export function useStartSession() {
   const [navigating, startNavigation] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  async function start(config: SessionConfig) {
+  /** New questions with these settings. */
+  const start = (config: SessionConfig) => open(() => createSession(config));
+  /** The same questions as a finished session. */
+  const retry = (sessionId: string) => open(() => retrySession(sessionId));
+
+  async function open(create: () => Promise<string>) {
     setCreating(true);
     setError(null);
     try {
-      const id = await createSession(config);
+      const id = await create();
       // Cleared inside the transition, so the button stays pending until the new page shows.
       startNavigation(() => {
         setCreating(false);
@@ -32,5 +37,5 @@ export function useStartSession() {
     }
   }
 
-  return { start, pending: creating || navigating, error };
+  return { start, retry, pending: creating || navigating, error };
 }

@@ -191,11 +191,8 @@ export function ReportBody({
 
       {!friend && (
         <div className="border-t border-line pt-7">
-          <PracticeAgain report={report} />
-          <nav className="mt-5 flex justify-center gap-6 text-[13px] text-white/70">
-            <Link href="/setup" className="hover:text-white">
-              new session
-            </Link>
+          <NextSteps sessionId={sessionId} />
+          <nav className="mt-5 flex justify-center text-[13px] text-white/70">
             <Link href="/profile" className="hover:text-white">
               view progress
             </Link>
@@ -220,23 +217,27 @@ function MetricRow({ name, reading }: { name: string; reading: MetricReading }) 
   );
 }
 
-/** Same settings, fresh questions, straight into the session. */
-function PracticeAgain({ report }: { report: Report }) {
-  const { start, pending, error } = useStartSession();
+/** Retry the same questions, or pick new settings on the setup page. */
+function NextSteps({ sessionId }: { sessionId: string }) {
+  const { retry, pending, error } = useStartSession();
 
   return (
     <>
-      <PillButton
-        size="lg"
-        arrow={!pending}
-        disabled={pending}
-        onClick={() => start(report.config)}
-      >
-        {pending ? "preparing your questions…" : "practice again"}
-      </PillButton>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <PillButton size="lg" arrow={!pending} disabled={pending} onClick={() => retry(sessionId)} className="sm:flex-1">
+          {pending ? "loading your questions…" : "try again"}
+        </PillButton>
+        <PillLink
+          href="/setup"
+          size="lg"
+          className="border border-white/15 bg-transparent text-white hover:bg-white/5 hover:brightness-100 sm:flex-1"
+        >
+          new session
+        </PillLink>
+      </div>
       {error && (
         <p role="alert" className="mt-3 text-center text-[13px] text-brand">
-          couldn&apos;t start a session. try again in a moment.
+          {error}
         </p>
       )}
     </>

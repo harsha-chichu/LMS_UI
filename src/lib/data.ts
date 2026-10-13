@@ -250,6 +250,19 @@ const json = (body: unknown): RequestInit => ({
 /** Creates a session with fresh questions; returns its id. */
 export async function createSession(config: SessionConfig) {
   const { id, questions } = await api<{ id: string; questions: Question[] }>("/api/sessions", json(config));
+  return seedSession(id, config, questions);
+}
+
+/** Creates a session with the same settings and questions as a finished one; returns its id. */
+export async function retrySession(sessionId: string) {
+  const { id, config, questions } = await api<{ id: string; config: SessionConfig; questions: Question[] }>(
+    "/api/sessions",
+    json({ retryOf: sessionId }),
+  );
+  return seedSession(id, config, questions);
+}
+
+async function seedSession(id: string, config: SessionConfig, questions: Question[]) {
   // Hand the new row to the session screen so it can show the first question
   // without fetching it again. (The saved preferences catch up in the background.)
   const row: SessionRow = {
