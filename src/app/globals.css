@@ -126,38 +126,36 @@
 }
 
 /* ---- streak flame (components/common/StreakFlame.tsx) ---- */
+/* Fills come from the SVG gradients; this is the motion and the glow. */
 
 .flame {
-  animation: flame-glow 2.2s ease-in-out infinite;
+  animation: flame-glow 1.8s ease-in-out infinite;
 }
 .flame path,
 .flame circle {
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
-.flame-outer {
-  fill: var(--brand);
-  animation: flame-sway 1.7s ease-in-out infinite;
+.flame-halo {
+  animation: flame-halo 1.8s ease-in-out infinite;
 }
-/* Blur is in SVG user units, so the softness scales with the icon. */
+.flame-outer {
+  animation: flame-sway 1.6s ease-in-out infinite;
+}
 .flame-middle {
-  fill: color-mix(in oklch, var(--brand) 55%, white);
-  filter: blur(0.7px);
-  animation: flame-sway 1.2s ease-in-out -0.4s infinite reverse;
+  animation: flame-sway 1.1s ease-in-out -0.4s infinite reverse;
 }
 .flame-core {
-  fill: color-mix(in oklch, var(--brand) 12%, white);
-  filter: blur(0.5px);
-  animation: flame-flicker 0.9s ease-in-out -0.2s infinite;
+  animation: flame-flicker 0.8s ease-in-out -0.2s infinite;
 }
 .flame-ember {
   fill: color-mix(in oklch, var(--brand) 40%, white);
   opacity: 0;
-  animation: flame-ember 2.4s ease-out infinite;
+  animation: flame-ember 2.2s ease-out infinite;
 }
 .flame-ember-2 {
-  animation-delay: -1.3s;
-  animation-duration: 2s;
+  animation-delay: -1.2s;
+  animation-duration: 1.8s;
 }
 
 @keyframes flame-sway {
@@ -166,10 +164,10 @@
     transform: scale(1, 1) skewX(0deg);
   }
   25% {
-    transform: scale(0.96, 1.05) skewX(-3deg);
+    transform: scale(0.96, 1.06) skewX(-3deg);
   }
   50% {
-    transform: scale(1.02, 0.97) skewX(2deg);
+    transform: scale(1.03, 0.96) skewX(2deg);
   }
   75% {
     transform: scale(0.98, 1.04) skewX(-1.5deg);
@@ -183,21 +181,36 @@
     opacity: 1;
   }
   30% {
-    transform: scale(0.9, 1.12);
-    opacity: 0.9;
+    transform: scale(0.88, 1.14);
+    opacity: 0.85;
   }
   60% {
-    transform: scale(1.05, 0.92);
+    transform: scale(1.06, 0.9);
+  }
+}
+
+@keyframes flame-halo {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
   }
 }
 
 @keyframes flame-glow {
+  /* srgb so the glow keeps the accent's hue while it pulses */
   0%,
   100% {
-    filter: drop-shadow(0 0 2px color-mix(in oklch, var(--brand) 60%, transparent));
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--brand) 80%, transparent))
+      drop-shadow(0 0 6px color-mix(in srgb, var(--brand) 45%, transparent));
   }
   50% {
-    filter: drop-shadow(0 0 5px color-mix(in oklch, var(--brand) 85%, transparent));
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--brand) 100%, transparent))
+      drop-shadow(0 0 10px color-mix(in srgb, var(--brand) 70%, transparent));
   }
 }
 
@@ -210,7 +223,7 @@
     opacity: 1;
   }
   100% {
-    transform: translate(1.5px, -9px) scale(0.3);
+    transform: translate(2px, -11px) scale(0.3);
     opacity: 0;
   }
 }
@@ -224,6 +237,6 @@
     animation: none;
   }
   .flame {
-    filter: drop-shadow(0 0 3px color-mix(in oklch, var(--brand) 70%, transparent));
+    filter: drop-shadow(0 0 3px var(--brand)) drop-shadow(0 0 8px color-mix(in srgb, var(--brand) 55%, transparent));
   }
 }
