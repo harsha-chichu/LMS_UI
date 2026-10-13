@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AuthField, AuthShell, FormError, friendlyAuthError } from "@/components/auth/parts";
+import { AuthField, AuthShell, FormError, PasswordChecklist, friendlyAuthError } from "@/components/auth/parts";
+import { passwordProblem } from "@/lib/credentials";
 import { PillButton } from "@/components/common/PillButton";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -76,7 +77,8 @@ export function ResetPasswordForm() {
         className="space-y-5"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (password.length < 8) return setError("use at least 8 characters.");
+          const problem = passwordProblem(password);
+          if (problem) return setError(problem);
           setPending(true);
           setError(null);
           const { error: err } = await getSupabase().auth.updateUser({ password });
@@ -93,12 +95,12 @@ export function ResetPasswordForm() {
           label="new password"
           type="password"
           autoComplete="new-password"
-          placeholder="at least 8 characters"
+          placeholder="create a strong password"
           required
-          minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {password && <PasswordChecklist password={password} />}
         {error && <FormError>{error}</FormError>}
         <PillButton type="submit" size="lg" arrow={!pending} disabled={pending} className="md:h-[56px]">
           {pending ? "saving…" : "save password"}

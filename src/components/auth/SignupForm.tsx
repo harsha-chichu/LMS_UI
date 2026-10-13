@@ -3,8 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AuthField, AuthShell, FormError, GoogleButton, OrDivider, friendlyAuthError } from "@/components/auth/parts";
+import {
+  AuthField,
+  AuthShell,
+  FormError,
+  GoogleButton,
+  OrDivider,
+  PasswordChecklist,
+  friendlyAuthError,
+} from "@/components/auth/parts";
 import { PillButton } from "@/components/common/PillButton";
+import { emailProblem, normalizeEmail, passwordProblem } from "@/lib/credentials";
 import { getSupabase } from "@/lib/supabase/client";
 
 export function SignupForm() {
@@ -57,11 +66,12 @@ export function SignupForm() {
         className="space-y-5"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (password.length < 8) return setError("use at least 8 characters for your password.");
+          const problem = emailProblem(email) ?? passwordProblem(password, email);
+          if (problem) return setError(problem);
           setPending(true);
           setError(null);
           const { data, error: err } = await getSupabase().auth.signUp({
-            email,
+            email: normalizeEmail(email),
             password,
             options: {
               data: { name: name.trim() },
@@ -75,7 +85,7 @@ export function SignupForm() {
           }
           // With email confirmation on, there's no session until the link is opened.
           if (!data.session) {
-            setSentTo(email);
+            setSentTo(normalizeEmail(email));
             setPending(false);
             return;
           }
@@ -108,12 +118,12 @@ export function SignupForm() {
           label="password"
           type="password"
           autoComplete="new-password"
-          placeholder="at least 8 characters"
+          placeholder="create a strong password"
           required
-          minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {password && <PasswordChecklist password={password} />}
         {error && <FormError>{error}</FormError>}
         <PillButton type="submit" size="lg" arrow={!pending} disabled={pending} className="mt-1 md:h-[56px]">
           {pending ? "creating your account…" : "create account"}
