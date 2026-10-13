@@ -68,7 +68,7 @@ export function ReportBody({
       <StatRow
         items={[
           { value: report.answersScore, label: `answers · ${ANSWER_WEIGHT * 100}%` },
-          { value: report.communicationScore, label: `communication · ${COMMUNICATION_WEIGHT * 100}%` },
+          { value: report.communicationScore ?? "–", label: `communication · ${COMMUNICATION_WEIGHT * 100}%` },
           { value: report.followUps, label: "follow-ups" },
         ]}
       />
@@ -78,34 +78,38 @@ export function ReportBody({
         <p className="mt-3 text-[15px] leading-relaxed text-white/90">{report.summary}</p>
       </Section>
 
-      <Section>
-        <SectionLabel>strengths</SectionLabel>
-        <ul className="mt-3 space-y-2.5">
-          {report.strengths.map((s) => (
-            <li key={s} className="flex gap-3 text-[15px]">
-              <Check className="mt-1 size-4 shrink-0 text-brand" strokeWidth={2} />
-              {s}
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {report.strengths.length > 0 && (
+        <Section>
+          <SectionLabel>strengths</SectionLabel>
+          <ul className="mt-3 space-y-2.5">
+            {report.strengths.map((s) => (
+              <li key={s} className="flex gap-3 text-[15px]">
+                <Check className="mt-1 size-4 shrink-0 text-brand" strokeWidth={2} />
+                {s}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
-      <Section>
-        <SectionLabel>areas to improve</SectionLabel>
-        <ul className="mt-3 space-y-2.5">
-          {report.improvements.map((s) => (
-            <li key={s} className="flex gap-3 text-[15px]">
-              <ArrowUpRight className="mt-1 size-4 shrink-0 text-subtle" strokeWidth={1.75} />
-              {s}
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {report.improvements.length > 0 && (
+        <Section>
+          <SectionLabel>areas to improve</SectionLabel>
+          <ul className="mt-3 space-y-2.5">
+            {report.improvements.map((s) => (
+              <li key={s} className="flex gap-3 text-[15px]">
+                <ArrowUpRight className="mt-1 size-4 shrink-0 text-subtle" strokeWidth={1.75} />
+                {s}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <Section>
         <div className="flex items-center justify-between">
           <SectionLabel>communication</SectionLabel>
-          <span className="text-[14px] tabular-nums">{report.communicationScore}/100</span>
+          <span className="text-[14px] tabular-nums">{report.communicationScore === null ? "not rated" : `${report.communicationScore}/100`}</span>
         </div>
         <dl className="mt-3 space-y-3">
           <MetricRow name="clarity" reading={comm.clarity} />
@@ -142,7 +146,7 @@ export function ReportBody({
                 <div className="space-y-4 pb-5 pl-9 text-[14px]">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[12px] text-subtle">
-                      {q.score === null ? "skipped" : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
+                      {q.score === null ? (q.mode ? "not scored" : "skipped") : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
                     </span>
                     {!friend && (
                       <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />

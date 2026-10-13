@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 
-export const MODEL = "claude-opus-5-5";
+const MODEL = "claude-opus-5-5";
 
 let client: Anthropic | null = null;
 
@@ -13,14 +13,9 @@ function getClient() {
   return client;
 }
 
-/** Set LMS_MOCK_LLM=1 to skip the API entirely (offline dev, demos). */
-export function llmDisabled() {
-  return process.env.LMS_MOCK_LLM === "1";
-}
-
 /**
- * One structured-output call. Throws on refusal or unparseable output so
- * callers can fall back to the mock evaluator.
+ * One structured-output call. Throws on refusal, truncation or unparseable
+ * output; callers decide how to degrade.
  */
 export async function generateStructured<T extends z.ZodType>(opts: {
   schema: T;

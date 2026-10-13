@@ -11,10 +11,10 @@ import type { AnswerMode, QuestionResult, SessionRow } from "@/types";
  * still be running in the background when we advance.
  */
 
-export type Phase = "answering" | "listening" | "submitting" | "finishing";
-export type Target = "main" | "followup";
+type Phase = "answering" | "listening" | "submitting" | "finishing";
+type Target = "main" | "followup";
 
-export interface SessionState {
+interface SessionState {
   index: number;
   results: QuestionResult[];
   phase: Phase;

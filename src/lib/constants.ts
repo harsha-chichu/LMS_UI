@@ -19,8 +19,6 @@ export const TOPICS = {
   behavioral: ["about you", "conflict", "failure & mistakes", "leadership & influence", "prioritization", "growth & feedback"],
 } as const satisfies Record<Domain, readonly string[]>;
 
-export type Topic<D extends Domain> = (typeof TOPICS)[D][number];
-
 export const MAX_TOPICS = 5;
 export const MAX_TOPIC_LENGTH = 40;
 

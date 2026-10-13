@@ -184,7 +184,7 @@ export async function updateName(profile: Profile, name: string) {
 // Everything about other people goes through SQL functions that check the
 // friendship and leave out answers (see supabase/migrations/0003_friends.sql).
 
-export interface FriendProfile {
+interface FriendProfile {
   name: string;
   sessions: CompletedSession[];
 }

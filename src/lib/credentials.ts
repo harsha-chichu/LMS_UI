@@ -4,7 +4,7 @@
  * Sign In / Providers → Email), so keep the two in sync.
  */
 
-export const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 8;
 
 export const PASSWORD_RULES = [
   { label: `at least ${MIN_PASSWORD_LENGTH} characters`, test: (p: string) => p.length >= MIN_PASSWORD_LENGTH },

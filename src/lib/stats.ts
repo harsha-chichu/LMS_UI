@@ -47,7 +47,7 @@ export function scoreTrend(reports: Report[]) {
   return { points, delta };
 }
 
-export interface HeatmapCell {
+interface HeatmapCell {
   key: string;
   count: number;
   level: 0 | 1 | 2 | 3 | 4;
