@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flame } from "lucide-react";
+import { StreakFlame } from "@/components/common/StreakFlame";
 import { FriendsLink } from "@/components/friends/FriendsLink";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ export function Avatar({ name, size = 44, className }: { name: string; size?: nu
 export function StreakCount({ days }: { days: number }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-[15px] text-white/80" title={`${days} day streak`}>
-      <Flame className="size-4 fill-brand text-brand" strokeWidth={1.5} />
+      <StreakFlame className="size-[18px]" />
       {days}
       <span className="sr-only">day streak</span>
     </span>
@@ -28,7 +28,7 @@ export function StreakCount({ days }: { days: number }) {
 export function StreakPill({ days }: { days: number }) {
   return (
     <span className="inline-flex h-9 items-center gap-2 rounded-full border border-brand/60 px-4 text-[14px] font-medium">
-      <Flame className="size-4 fill-brand text-brand" strokeWidth={1.5} />
+      <StreakFlame className="size-[18px]" />
       {days} day streak
     </span>
   );
