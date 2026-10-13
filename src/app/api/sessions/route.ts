@@ -10,7 +10,10 @@ import type { Preferences } from "@/types";
 // Keeps one account from burning through the LLM budget.
 const DAILY_SESSION_LIMIT = 30;
 
-/** Start a session: pick questions from the bank and store an in-progress row. */
+/**
+ * Start a session: pick questions from the bank and store an in-progress row.
+ * `{ retryOf: id }` instead of a config reuses a finished session's settings and questions.
+ */
 export async function POST(request: Request) {
   const timer = serverTimer();
   const auth = await requireUser();
@@ -18,28 +21,63 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const { supabase, user } = auth;
 
-  const parsed = sessionConfigSchema.safeParse(await request.json().catch(() => null));
+  const body: unknown = await request.json().catch(() => null);
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const underLimit = () =>
+    Promise.resolve(
+      supabase.from("lms_sessions").select("id", { count: "exact", head: true }).gte("created_at", since),
+    ).then(({ count }) => (count ?? 0) < DAILY_SESSION_LIMIT);
+  const limitReached = () =>
+    Response.json(
+      { error: `you've reached today's limit of ${DAILY_SESSION_LIMIT} sessions — come back tomorrow.` },
+      { status: 429 },
+    );
+
+  // "try again": same settings and questions as one of the user's finished sessions.
+  const retryOf = (body as { retryOf?: unknown } | null)?.retryOf;
+  if (typeof retryOf === "string") {
+    try {
+      // Friends can read each other's sessions, so filter on the owner too.
+      const [allowed, { data: prev, error: loadError }] = await Promise.all([
+        underLimit(),
+        supabase
+          .from("lms_sessions")
+          .select("config, questions")
+          .eq("id", retryOf)
+          .eq("user_id", user.id)
+          .eq("status", "completed")
+          .maybeSingle(),
+      ]);
+      if (loadError) throw loadError;
+      if (!prev) return Response.json({ error: "session not found" }, { status: 404 });
+      if (!allowed) return limitReached();
+
+      const { data, error } = await getSupabaseAdmin()
+        .from("lms_sessions")
+        .insert({ user_id: user.id, config: prev.config, questions: prev.questions, results: [] })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return Response.json({ id: data.id, config: prev.config, questions: prev.questions });
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+
+  const parsed = sessionConfigSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "invalid request" }, { status: 400 });
 
   try {
     const config = parsed.data;
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const underLimit = Promise.resolve(
-      supabase.from("lms_sessions").select("id", { count: "exact", head: true }).gte("created_at", since),
-    ).then(({ count }) => (count ?? 0) < DAILY_SESSION_LIMIT);
+    const underLimitNow = underLimit();
 
     // The limit check and the bank lookup run side by side; generating questions
     // (the expensive part) still waits for the limit.
     const [allowed, questions] = await Promise.all([
-      underLimit,
-      pickQuestions(user.id, config, { timer, canGenerate: underLimit }),
+      underLimitNow,
+      pickQuestions(user.id, config, { timer, canGenerate: underLimitNow }),
     ]);
-    if (!allowed) {
-      return Response.json(
-        { error: `you've reached today's limit of ${DAILY_SESSION_LIMIT} sessions — come back tomorrow.` },
-        { status: 429 },
-      );
-    }
+    if (!allowed) return limitReached();
 
     // Users can't write sessions themselves (migration 0004), so the insert uses the service role.
     const { data, error } = await getSupabaseAdmin()
