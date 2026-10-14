@@ -1,4 +1,5 @@
 import {
+  Features,
   FinalCta,
   Footer,
   Hero,
@@ -14,6 +15,7 @@ export default function LandingPage() {
       <main>
         <Hero />
         <HowItWorks />
+        <Features />
         <ReportCovers />
         <FinalCta />
       </main>
