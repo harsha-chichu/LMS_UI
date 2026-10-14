@@ -1,3 +1,7 @@
+"use client";
+
+import { Popover } from "@base-ui/react/popover";
+import { Info } from "lucide-react";
 import { DIFFICULTIES } from "@/lib/constants";
 import { type ByDifficulty, SOLVED_SCORE } from "@/lib/mastery";
 import type { Difficulty } from "@/types";
@@ -45,9 +49,12 @@ export function SolvedRing({
 
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <h2 className="text-[13px] text-subtle">solved</h2>
-        <p className="text-[13px] text-white/85">score {SOLVED_SCORE}+ on a question to solve it</p>
+        <div className="-mr-1.5 flex items-center gap-0.5 text-[13px] text-white/85">
+          {SOLVED_SCORE}/10 = solved
+          <SolvedInfo />
+        </div>
       </div>
 
       <div className="mt-5 flex items-center gap-6">
@@ -109,5 +116,31 @@ export function SolvedRing({
         </dl>
       </div>
     </div>
+  );
+}
+
+/** Tap (i) to see how a question gets solved. A popover, so it works on phones too. */
+function SolvedInfo() {
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        aria-label="How solving works"
+        className="inline-flex size-7 items-center justify-center rounded-full text-subtle transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand data-[popup-open]:text-white"
+      >
+        <Info className="size-4" strokeWidth={1.75} />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
+          <Popover.Popup className="max-w-[270px] origin-(--transform-origin) rounded-xl border border-line bg-popover p-4 text-[13px] leading-relaxed text-white/85 shadow-lg outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+            <Popover.Title className="text-[14px] font-medium text-white">how solving works</Popover.Title>
+            <ul className="mt-2 space-y-1.5">
+              <li>a question counts as solved once you score {SOLVED_SCORE}/10 or more on it.</li>
+              <li>your best score counts — a lower retry doesn&apos;t undo it.</li>
+              <li>skipped questions don&apos;t count. use try again on a report to have another go.</li>
+            </ul>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
