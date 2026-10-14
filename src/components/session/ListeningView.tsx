@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { useElapsed } from "@/hooks/useElapsed";
 import { formatClock } from "@/lib/dates";
 
-/** Full-screen voice capture: live transcript, cancel (✕) and submit (✓). */
+/** Full-screen voice capture: live transcript, cancel (✕) and done (✓), which opens the transcript for review. */
 export function ListeningView({
   prompt,
   transcript,
@@ -111,7 +111,7 @@ export function ListeningView({
             <button
               type="button"
               onClick={onSubmit}
-              aria-label="Submit answer"
+              aria-label="Review answer"
               className="inline-flex size-[60px] items-center justify-center rounded-full bg-brand text-black hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               <Check className="size-6" strokeWidth={2} />

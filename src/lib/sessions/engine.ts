@@ -73,8 +73,9 @@ async function claudeScore(config: SessionConfig, r: QuestionResult, allowFollow
 function applyAgentRun(r: QuestionResult, run: AgentRun, turn: Turn, target: Target): QuestionResult {
   const answered: Turn = {
     ...turn,
-    // The agent's Gemini transcript is more faithful than the browser's live one.
-    text: run.transcript?.trim() || turn.text,
+    // The user reviewed (and maybe edited) the text before sending, so it stands;
+    // the agent's transcript only fills in when no text was sent.
+    text: turn.text.trim() || run.transcript?.trim() || "",
     communication: target === "main" ? run.communication : turn.communication,
   };
   const next: QuestionResult =
