@@ -16,6 +16,7 @@ export interface AgentEvaluationResult {
   followup_evaluation: string | null;
   /** Older agent builds don't send this. */
   suggested_answer?: string | null;
+  suggested_points?: string[];
 }
 
 export interface AgentRun {

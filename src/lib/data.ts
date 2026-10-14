@@ -3,9 +3,10 @@
 import useSWR, { mutate } from "swr";
 import { applyAccent, DEFAULT_ACCENT } from "@/lib/accent";
 import { DEFAULT_PREFERENCES } from "@/lib/constants";
-import { type Attempt, type TopicMastery, topicMastery } from "@/lib/mastery";
+import { type Attempt, type ByDifficulty, type TopicMastery, topicMastery } from "@/lib/mastery";
 import { getSupabase } from "@/lib/supabase/client";
 import type {
+  AnswerMode,
   Difficulty,
   Domain,
   FriendOverview,
@@ -249,6 +250,8 @@ export async function removeAvatar(profile: Profile) {
 interface FriendProfile {
   name: string;
   avatar_url: string | null;
+  /** Questions solved per difficulty (migration 0011); absent before it's run. */
+  solved?: ByDifficulty;
   sessions: CompletedSession[];
 }
 
@@ -321,6 +324,15 @@ export async function retrySession(sessionId: string) {
   const { id, config, questions } = await api<{ id: string; config: SessionConfig; questions: Question[] }>(
     "/api/sessions",
     json({ retryOf: sessionId }),
+  );
+  return seedSession(id, config, questions);
+}
+
+/** Creates a session from the user's unsolved questions at this level; returns its id. */
+export async function practiceSession(domain: Domain, difficulty: Difficulty, mode: AnswerMode) {
+  const { id, config, questions } = await api<{ id: string; config: SessionConfig; questions: Question[] }>(
+    "/api/sessions",
+    json({ practice: { domain, difficulty }, mode }),
   );
   return seedSession(id, config, questions);
 }

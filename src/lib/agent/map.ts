@@ -31,6 +31,7 @@ export function toEvaluation(result: AgentEvaluationResult): Evaluation {
     needsFollowUp: false,
     followUp: null,
     suggestedAnswer: result.suggested_answer?.trim() || undefined,
+    suggestedPoints: result.suggested_points?.map((p) => p.trim()).filter(Boolean).slice(0, 5),
     strengths: result.strengths,
     weaknesses: result.weaknesses,
   };

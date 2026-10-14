@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createSession, retrySession } from "@/lib/data";
-import type { SessionConfig } from "@/types";
+import { createSession, practiceSession, retrySession } from "@/lib/data";
+import type { AnswerMode, Difficulty, Domain, SessionConfig } from "@/types";
 
 /**
  * Creates a session and opens it. `pending` covers both the request and the
@@ -20,6 +20,9 @@ export function useStartSession() {
   const start = (config: SessionConfig) => open(() => createSession(config));
   /** The same questions as a finished session. */
   const retry = (sessionId: string) => open(() => retrySession(sessionId));
+  /** Questions the user tried at this level but hasn't solved yet. */
+  const practise = (domain: Domain, difficulty: Difficulty, mode: AnswerMode) =>
+    open(() => practiceSession(domain, difficulty, mode));
 
   async function open(create: () => Promise<string>) {
     setCreating(true);
@@ -37,5 +40,5 @@ export function useStartSession() {
     }
   }
 
-  return { start, retry, pending: creating || navigating, error };
+  return { start, retry, practise, pending: creating || navigating, error };
 }

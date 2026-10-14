@@ -10,7 +10,7 @@ import {
 import { agentDomain, toEvaluation } from "@/lib/agent/map";
 import { evaluateAnswer, writeNarrative } from "@/lib/llm/service";
 import { emptyResult as blank, pendingFollowUp } from "@/lib/sessions/progress";
-import { buildReport, plainNarrative } from "@/lib/scoring";
+import { buildReport, plainNarrative, type ReportHistory } from "@/lib/scoring";
 import { computeSpeechMetrics } from "@/lib/speech-metrics";
 import type { QuestionResult, Report, SessionConfig, SessionRow, Turn } from "@/types";
 
@@ -202,7 +202,10 @@ async function settleScores(row: SessionRow, results: QuestionResult[], timeoutM
   }
 }
 
-export async function finalize(row: SessionRow): Promise<{ results: QuestionResult[]; report: Report }> {
+export async function finalize(
+  row: SessionRow,
+  history?: ReportHistory,
+): Promise<{ results: QuestionResult[]; report: Report }> {
   // Unanswered questions at the end count as skipped.
   const results = row.questions.map((_, i) => {
     const r = structuredClone(emptyResult(row, i));
@@ -224,6 +227,6 @@ export async function finalize(row: SessionRow): Promise<{ results: QuestionResu
     console.warn("[claude:report] using a plain summary:", err instanceof Error ? err.message : err);
     return plainNarrative();
   });
-  const report = buildReport({ id: row.id, config: row.config, results, metrics, narrative });
+  const report = buildReport({ id: row.id, config: row.config, results, metrics, narrative, history });
   return { results, report };
 }

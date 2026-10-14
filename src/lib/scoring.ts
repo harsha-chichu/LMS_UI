@@ -10,6 +10,14 @@ export interface ReportNarrative {
   confidence: MetricReading;
 }
 
+/** What the user scored before, so a report can show progress (see sessions/history.ts). */
+export interface ReportHistory {
+  /** On a "try again" session: the session it repeats. */
+  previous?: { sessionId: string; total: number };
+  /** Last score per bank question id before this session; null when it was skipped. */
+  previousScores: Record<string, number | null>;
+}
+
 /** Used when the LLM can't write the narrative. Level 0 readings aren't counted in the score. */
 export function plainNarrative(): ReportNarrative {
   return {
@@ -89,8 +97,9 @@ export function buildReport(input: {
   results: QuestionResult[];
   metrics: SpeechMetrics;
   narrative: ReportNarrative;
+  history?: ReportHistory;
 }): Report {
-  const { id, config, results, metrics, narrative } = input;
+  const { id, config, results, metrics, narrative, history } = input;
 
   // Skipped questions count as 0 so skipping isn't a way to raise the score.
   // Answers we couldn't score (evaluator down) are left out instead.
@@ -132,6 +141,7 @@ export function buildReport(input: {
     total,
     answersScore,
     communicationScore: measured ? communicationScore : null,
+    ...(history?.previous ? { previous: history.previous } : {}),
     followUps: results.reduce((n, r) => n + r.followUps.length, 0),
     summary: narrative.summary,
     strengths: narrative.strengths,
@@ -156,6 +166,10 @@ export function buildReport(input: {
       answer: r.answer?.text ?? null,
       followUps: r.followUps.map((f) => ({ question: f.question, answer: f.answer?.text ?? null })),
       suggestedAnswer: r.evaluation?.suggestedAnswer ?? null,
+      suggestedPoints: r.evaluation?.suggestedPoints ?? [],
+      ...(r.question.bankId && history && r.question.bankId in history.previousScores
+        ? { previousScore: history.previousScores[r.question.bankId] }
+        : {}),
       strengths: r.evaluation?.strengths?.slice(0, MAX_BULLETS) ?? [],
       // The agent's next-time tip is its first weakness; don't show it twice.
       weaknesses: (r.evaluation?.weaknesses ?? []).filter((w) => !sameTip(w, r.evaluation?.nextTime)).slice(0, MAX_BULLETS),

@@ -70,6 +70,7 @@ export async function evaluateAnswer(input: {
     strengths: out.strengths.map((s) => s.trim()).filter(Boolean).slice(0, 3),
     weaknesses: out.weaknesses.map((s) => s.trim()).filter(Boolean).slice(0, 3),
     suggestedAnswer: out.suggested_answer.trim() || undefined,
+    suggestedPoints: out.suggested_points.map((p) => p.trim()).filter(Boolean).slice(0, 5),
     needsFollowUp: followUp !== null,
     followUp,
   };
