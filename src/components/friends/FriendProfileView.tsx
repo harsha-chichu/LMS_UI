@@ -45,7 +45,7 @@ export function FriendProfileView() {
       <BackHeader title="friend" href="/friends" />
 
       <div className="flex items-center gap-4 pt-4 pb-7">
-        <Avatar name={name} size={60} />
+        <Avatar name={name} src={friend.avatar_url} size={60} />
         <p className="min-w-0 flex-1 truncate text-[22px] leading-tight font-medium">{name}</p>
         {them.streak > 0 && <StreakPill days={them.streak} />}
       </div>

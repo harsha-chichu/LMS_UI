@@ -46,7 +46,7 @@ async function fetchProfile(): Promise<Profile> {
   if (authError || !auth.user) throw new Error("not signed in");
   const { data, error } = await supabase
     .from("lms_profiles")
-    .select("id, name, preferences")
+    .select("id, name, preferences, avatar_url")
     .eq("id", auth.user.id)
     .maybeSingle();
   if (error) throw error;
@@ -54,6 +54,7 @@ async function fetchProfile(): Promise<Profile> {
     id: auth.user.id,
     email: auth.user.email ?? "",
     name: data?.name || auth.user.email?.split("@")[0] || "there",
+    avatarUrl: data?.avatar_url ?? null,
     preferences: { ...DEFAULT_PREFERENCES, ...(data?.preferences ?? {}) },
   };
 }
@@ -197,12 +198,57 @@ export async function updateName(profile: Profile, name: string) {
   await mutate(KEYS.profile, { ...profile, name }, false);
 }
 
+// ---- profile photo ----
+// Stored in the public "avatars" bucket at <user id>/<random>.webp
+// (supabase/migrations/0009_avatars.sql); only the owner can write their folder.
+
+const AVATAR_BUCKET = "avatars";
+
+/** The storage path of one of our own avatar URLs, so the old file can be deleted. */
+function avatarPath(url: string | null) {
+  const marker = `/${AVATAR_BUCKET}/`;
+  const i = url?.indexOf(marker) ?? -1;
+  return url && i >= 0 ? decodeURIComponent(url.slice(i + marker.length).split("?")[0]) : null;
+}
+
+async function setAvatarUrl(profile: Profile, avatarUrl: string | null) {
+  const { error } = await getSupabase().from("lms_profiles").update({ avatar_url: avatarUrl }).eq("id", profile.id);
+  if (error) throw error;
+  await mutate(KEYS.profile, { ...profile, avatarUrl }, false);
+  // Friends lists show your photo too.
+  await mutate(KEYS.friends);
+}
+
+/** Resizes the photo, uploads it, points the profile at it and deletes the previous one. */
+export async function uploadAvatar(profile: Profile, file: File) {
+  const { resizeAvatar } = await import("@/lib/avatar");
+  const blob = await resizeAvatar(file);
+  const ext = blob.type === "image/webp" ? "webp" : "jpg";
+  const path = `${profile.id}/${crypto.randomUUID()}.${ext}`;
+  const storage = getSupabase().storage.from(AVATAR_BUCKET);
+
+  const { error } = await storage.upload(path, blob, { contentType: blob.type, cacheControl: "31536000" });
+  if (error) throw error;
+  const { data } = storage.getPublicUrl(path);
+
+  const previous = avatarPath(profile.avatarUrl);
+  await setAvatarUrl(profile, data.publicUrl);
+  if (previous) await storage.remove([previous]).catch(() => {});
+}
+
+export async function removeAvatar(profile: Profile) {
+  const previous = avatarPath(profile.avatarUrl);
+  await setAvatarUrl(profile, null);
+  if (previous) await getSupabase().storage.from(AVATAR_BUCKET).remove([previous]).catch(() => {});
+}
+
 // ---- friends ----
 // Everything about other people goes through SQL functions that check the
 // friendship and leave out answers (see supabase/migrations/0003_friends.sql).
 
 interface FriendProfile {
   name: string;
+  avatar_url: string | null;
   sessions: CompletedSession[];
 }
 

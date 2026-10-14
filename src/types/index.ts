@@ -162,12 +162,14 @@ export type FriendRelation = "none" | "outgoing" | "incoming" | "friends";
 export interface UserSearchResult {
   id: string;
   name: string;
+  avatar_url: string | null;
   relation: FriendRelation;
 }
 
 export interface FriendRequest {
   id: string;
   name: string;
+  avatar_url: string | null;
   direction: "incoming" | "outgoing";
 }
 
@@ -175,6 +177,7 @@ export interface FriendRequest {
 export interface FriendOverview {
   id: string;
   name: string;
+  avatar_url: string | null;
   is_me: boolean;
   sessions: { total: number; completed_at: string }[];
 }
@@ -183,6 +186,8 @@ export interface Profile {
   id: string;
   name: string;
   email: string;
+  /** Public URL of the uploaded photo; null shows the letter avatar. */
+  avatarUrl: string | null;
   preferences: Preferences;
 }
 
