@@ -67,6 +67,8 @@ export async function evaluateAnswer(input: {
     score: Math.round(clamp(out.score, 0, 10) * 10) / 10,
     feedback: out.feedback.trim(),
     nextTime: out.next_time.trim(),
+    strengths: out.strengths.map((s) => s.trim()).filter(Boolean).slice(0, 3),
+    weaknesses: out.weaknesses.map((s) => s.trim()).filter(Boolean).slice(0, 3),
     suggestedAnswer: out.suggested_answer.trim() || undefined,
     needsFollowUp: followUp !== null,
     followUp,

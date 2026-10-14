@@ -132,6 +132,9 @@ export interface Report {
     answer?: string | null;
     followUps?: { question: string; answer: string | null }[];
     suggestedAnswer?: string | null;
+    /** Short bullets from the evaluator. Unset on reports from before they were stored. */
+    strengths?: string[];
+    weaknesses?: string[];
   }[];
 }
 

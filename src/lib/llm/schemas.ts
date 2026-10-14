@@ -28,6 +28,8 @@ export const evaluationOutput = z.object({
   score: z.number(),
   feedback: z.string(),
   next_time: z.string(),
+  strengths: z.array(z.string()),
+  weaknesses: z.array(z.string()),
   suggested_answer: z.string(),
   needs_follow_up: z.boolean(),
   follow_up: z.string().nullable(),
