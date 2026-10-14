@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillLink } from "@/components/common/PillButton";
-import { Avatar, StreakPill } from "@/components/common/UserBits";
+import { Avatar, StreakCount, StreakPill } from "@/components/common/UserBits";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { ScoreTrend } from "@/components/profile/ScoreTrend";
 import { ReportBody } from "@/components/report/ReportView";
@@ -47,7 +47,17 @@ export function FriendProfileView() {
       <div className="flex items-center gap-4 pt-4 pb-7">
         <Avatar name={name} src={friend.avatar_url} size={60} />
         <p className="min-w-0 flex-1 truncate text-[22px] leading-tight font-medium">{name}</p>
-        {them.streak > 0 && <StreakPill days={them.streak} />}
+        {them.streak > 0 && (
+          // Phones get the compact flame + number so the name has room; the pill from sm up.
+          <>
+            <span className="shrink-0 sm:hidden">
+              <StreakCount days={them.streak} />
+            </span>
+            <span className="hidden shrink-0 sm:inline-flex">
+              <StreakPill days={them.streak} />
+            </span>
+          </>
+        )}
       </div>
 
       <StatRow
