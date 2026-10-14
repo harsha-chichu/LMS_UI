@@ -21,6 +21,8 @@ export interface TopicMastery {
   attempts: number;
   /** Average of the last ADAPTIVE.masteryWindow attempts, skips counting as 0. */
   recentAverage: number;
+  /** How many of those recent attempts were actually answered (0 = only skipped). */
+  answered: number;
   lastPracticed: string;
   mastered: boolean;
 }
@@ -30,27 +32,38 @@ export const attemptScore = (a: Pick<Attempt, "score" | "skipped">) => (a.skippe
 /** Per topic, at each domain + difficulty the user has practised. */
 export function topicMastery(attempts: Attempt[]): TopicMastery[] {
   const newestFirst = [...attempts].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const groups = new Map<string, { key: Omit<TopicMastery, "attempts" | "recentAverage" | "lastPracticed" | "mastered">; scores: number[]; last: string }>();
+  const groups = new Map<
+    string,
+    {
+      key: Omit<TopicMastery, "attempts" | "recentAverage" | "answered" | "lastPracticed" | "mastered">;
+      scores: number[];
+      skipped: boolean[];
+      last: string;
+    }
+  >();
 
   for (const a of newestFirst) {
     for (const topic of a.topics) {
       const id = `${a.domain}|${a.difficulty}|${topic}`;
       let g = groups.get(id);
       if (!g) {
-        g = { key: { domain: a.domain, difficulty: a.difficulty, topic }, scores: [], last: a.created_at };
+        g = { key: { domain: a.domain, difficulty: a.difficulty, topic }, scores: [], skipped: [], last: a.created_at };
         groups.set(id, g);
       }
       g.scores.push(attemptScore(a));
+      g.skipped.push(a.skipped || a.score == null);
     }
   }
 
-  return [...groups.values()].map(({ key, scores, last }) => {
+  return [...groups.values()].map(({ key, scores, skipped, last }) => {
     const recent = scores.slice(0, ADAPTIVE.masteryWindow);
+    const answered = skipped.slice(0, ADAPTIVE.masteryWindow).filter((s) => !s).length;
     const recentAverage = Math.round((recent.reduce((s, x) => s + x, 0) / recent.length) * 10) / 10;
     return {
       ...key,
       attempts: scores.length,
       recentAverage,
+      answered,
       lastPracticed: last,
       mastered: scores.length >= ADAPTIVE.masteryMinAttempts && recentAverage >= ADAPTIVE.masteryScore,
     };
