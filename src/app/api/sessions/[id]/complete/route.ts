@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { finalize } from "@/lib/sessions/engine";
+import { loadHistory } from "@/lib/sessions/history";
 import { errorResponse, loadSession } from "@/lib/sessions/store";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
@@ -11,7 +12,8 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/sessions/[
   try {
     const { id } = await ctx.params;
     const row = await loadSession(auth.supabase, id);
-    const { results, report } = await finalize(row);
+    const history = await loadHistory(auth.supabase, auth.user.id, row);
+    const { results, report } = await finalize(row, history);
 
     const { error } = await getSupabaseAdmin()
       .from("lms_sessions")

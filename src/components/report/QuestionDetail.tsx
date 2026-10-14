@@ -61,7 +61,8 @@ function Answers({ q }: { q: ReportQuestion }) {
   const [side, setSide] = useState<Side>("yours");
   const followUps = q.followUps ?? [];
   const hasYours = Boolean(q.answer) || followUps.length > 0;
-  const hasSuggested = Boolean(q.suggestedAnswer);
+  const points = q.suggestedPoints ?? [];
+  const hasSuggested = Boolean(q.suggestedAnswer) || points.length > 0;
   if (!hasYours && !hasSuggested) return null;
 
   const yours = hasYours && (
@@ -76,7 +77,7 @@ function Answers({ q }: { q: ReportQuestion }) {
       ))}
     </div>
   );
-  const suggested = hasSuggested && <Clamp text={q.suggestedAnswer!} className="text-white/90" />;
+  const suggested = hasSuggested && <Suggested points={points} full={q.suggestedAnswer ?? null} />;
 
   // Only one of the two: no toggle needed.
   if (!hasYours || !hasSuggested) {
@@ -118,6 +119,36 @@ function Answers({ q }: { q: ReportQuestion }) {
           {suggested}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Key points first (quick to remember); the full model answer one tap away. */
+function Suggested({ points, full }: { points: string[]; full: string | null }) {
+  const [open, setOpen] = useState(false);
+  if (!points.length) return full ? <Clamp text={full} className="text-white/90" /> : null;
+  return (
+    <div>
+      <ol className="space-y-1.5">
+        {points.map((p, i) => (
+          <li key={i} className="flex gap-2.5 leading-snug text-white/90">
+            <span className="w-4 shrink-0 text-right text-[12px] leading-[1.6] text-brand tabular-nums">{i + 1}</span>
+            {p}
+          </li>
+        ))}
+      </ol>
+      {full && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className="mt-2 text-[13px] text-brand hover:brightness-110"
+          >
+            {open ? "hide the full answer" : "read it as a full answer"}
+          </button>
+          {open && <p className="mt-2 leading-relaxed whitespace-pre-line text-white/80">{full}</p>}
+        </>
+      )}
     </div>
   );
 }

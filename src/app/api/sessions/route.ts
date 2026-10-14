@@ -1,18 +1,20 @@
 import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { sessionConfigSchema } from "@/lib/llm/schemas";
+import { practiceRequestSchema, sessionConfigSchema } from "@/lib/llm/schemas";
+import { type Attempt, PRACTICE_COUNT, unsolvedQuestionIds } from "@/lib/mastery";
 import { pickQuestions } from "@/lib/questions/pick";
 import { errorResponse } from "@/lib/sessions/store";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { serverTimer } from "@/lib/timing";
-import type { Preferences } from "@/types";
+import type { Preferences, Question, SessionConfig } from "@/types";
 
 // Keeps one account from burning through the LLM budget.
 const DAILY_SESSION_LIMIT = 30;
 
 /**
  * Start a session: pick questions from the bank and store an in-progress row.
- * `{ retryOf: id }` instead of a config reuses a finished session's settings and questions.
+ * `{ retryOf: id }` instead of a config reuses a finished session's settings and questions;
+ * `{ practice: { domain, difficulty }, mode }` builds one from the user's unsolved questions.
  */
 export async function POST(request: Request) {
   const timer = serverTimer();
@@ -52,13 +54,69 @@ export async function POST(request: Request) {
       if (!prev) return Response.json({ error: "session not found" }, { status: 404 });
       if (!allowed) return limitReached();
 
+      // Remember which session this repeats, so its report can show before / after.
+      const config: SessionConfig = { ...(prev.config as SessionConfig), retryOf };
       const { data, error } = await getSupabaseAdmin()
         .from("lms_sessions")
-        .insert({ user_id: user.id, config: prev.config, questions: prev.questions, results: [] })
+        .insert({ user_id: user.id, config, questions: prev.questions, results: [] })
         .select("id")
         .single();
       if (error) throw error;
-      return Response.json({ id: data.id, config: prev.config, questions: prev.questions });
+      return Response.json({ id: data.id, config, questions: prev.questions });
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+
+  // "practise unsolved": questions the user has tried at this level but not solved yet.
+  if (body && typeof body === "object" && "practice" in body) {
+    const practice = practiceRequestSchema.safeParse(body);
+    if (!practice.success) return Response.json({ error: "invalid request" }, { status: 400 });
+    const { practice: level, mode } = practice.data;
+    try {
+      const [allowed, { data: attempts, error: attemptsError }] = await Promise.all([
+        underLimit(),
+        supabase
+          .from("lms_question_attempts")
+          .select("question_id, session_id, domain, difficulty, topics, score, skipped, created_at")
+          .eq("user_id", user.id)
+          .eq("domain", level.domain)
+          .eq("difficulty", level.difficulty)
+          .limit(2000),
+      ]);
+      if (attemptsError) throw attemptsError;
+      if (!allowed) return limitReached();
+
+      const ids = unsolvedQuestionIds((attempts ?? []) as Attempt[], level.domain, level.difficulty);
+      // The bank is server-only, so read it with the service role; skip retired questions.
+      const { data: bank, error: bankError } = ids.length
+        ? await getSupabaseAdmin().from("lms_questions").select("id, text, topics").in("id", ids).eq("status", "active")
+        : { data: [], error: null };
+      if (bankError) throw bankError;
+      const byId = new Map((bank ?? []).map((q) => [q.id as string, q]));
+      const picked = ids.filter((id) => byId.has(id)).slice(0, PRACTICE_COUNT);
+      if (!picked.length) {
+        return Response.json({ error: "nothing left to practise here — every question you tried is solved." }, { status: 404 });
+      }
+
+      const questions: Question[] = picked.map((id, i) => {
+        const q = byId.get(id)!;
+        return { id: `q${i + 1}`, text: q.text as string, bankId: id, topics: (q.topics as string[]) ?? [] };
+      });
+      const config: SessionConfig = {
+        domain: level.domain,
+        difficulty: level.difficulty,
+        count: questions.length,
+        mode,
+        practice: true,
+      };
+      const { data, error } = await getSupabaseAdmin()
+        .from("lms_sessions")
+        .insert({ user_id: user.id, config, questions, results: [] })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return Response.json({ id: data.id, config, questions });
     } catch (err) {
       return errorResponse(err);
     }

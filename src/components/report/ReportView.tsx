@@ -58,6 +58,7 @@ export function ReportBody({
 
       <div className="flex flex-col items-center pt-4 pb-7">
         <ScoreRing score={report.total} />
+        {report.previous && <PreviousTotal previous={report.previous} total={report.total} friend={Boolean(friend)} />}
         <p className="mt-5 text-[13px] text-white/70">
           {domainShort(config.domain)} · {config.difficulty} · {report.questions.length} questions
         </p>
@@ -134,13 +135,16 @@ export function ReportBody({
               <AccordionTrigger className="gap-3 rounded-none py-4 hover:no-underline [&_[data-slot=accordion-trigger-icon]]:mt-1 [&_[data-slot=accordion-trigger-icon]]:size-4">
                 <span className="w-6 shrink-0 pt-px text-[13px] text-subtle tabular-nums">{String(i + 1).padStart(2, "0")}</span>
                 <span className="flex-1 text-[15px] leading-snug font-normal">{q.text}</span>
-                <span
-                  className={cn(
-                    "shrink-0 pl-2 text-[15px] font-medium tabular-nums",
-                    q.score !== null && q.score >= 8 ? "text-brand" : "text-white",
-                  )}
-                >
-                  {q.score === null ? "–" : q.score.toFixed(1)}
+                <span className="flex shrink-0 flex-col items-end pl-2">
+                  <span
+                    className={cn(
+                      "text-[15px] font-medium tabular-nums",
+                      q.score !== null && q.score >= 8 ? "text-brand" : "text-white",
+                    )}
+                  >
+                    {q.score === null ? "–" : q.score.toFixed(1)}
+                  </span>
+                  <ScoreDelta now={q.score} before={q.previousScore} />
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -148,6 +152,8 @@ export function ReportBody({
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[12px] text-subtle">
                       {q.score === null ? (q.mode ? "not scored" : "skipped") : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
+                      {q.previousScore !== undefined &&
+                        ` · last time ${q.previousScore === null ? "skipped" : `${q.previousScore.toFixed(1)}/10`}`}
                     </span>
                     {!friend && (
                       <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />
@@ -172,6 +178,49 @@ export function ReportBody({
         </div>
       )}
     </AppColumn>
+  );
+}
+
+/** "52 → 68 · +16 vs your last try", linking to the earlier report. */
+function PreviousTotal({
+  previous,
+  total,
+  friend,
+}: {
+  previous: NonNullable<Report["previous"]>;
+  total: number;
+  friend: boolean;
+}) {
+  const delta = total - previous.total;
+  const body = (
+    <>
+      <span className="tabular-nums text-white/70">{previous.total}</span>
+      <span className="text-subtle"> → </span>
+      <span className="tabular-nums">{total}</span>
+      <span className={cn("ml-2 tabular-nums", delta > 0 ? "text-brand" : "text-subtle")}>
+        {delta > 0 ? `+${delta}` : delta === 0 ? "same" : delta}
+      </span>
+      <span className="text-subtle"> vs the last try</span>
+    </>
+  );
+  return friend ? (
+    <p className="mt-4 text-[14px]">{body}</p>
+  ) : (
+    <Link href={`/report/${previous.sessionId}`} className="mt-4 text-[14px] hover:brightness-125">
+      {body}
+    </Link>
+  );
+}
+
+/** Change against the last time this question was answered, under its score. */
+function ScoreDelta({ now, before }: { now: number | null; before: number | null | undefined }) {
+  if (before === undefined || now === null) return null;
+  const delta = Math.round((now - (before ?? 0)) * 10) / 10;
+  if (delta === 0) return <span className="text-[11px] text-subtle tabular-nums">same</span>;
+  return (
+    <span className={cn("text-[11px] tabular-nums", delta > 0 ? "text-brand" : "text-subtle")}>
+      {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
+    </span>
   );
 }
 

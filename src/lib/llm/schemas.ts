@@ -18,6 +18,12 @@ export const sessionConfigSchema = z.object({
     .optional(),
 });
 
+/** POST /api/sessions body for a "practise unsolved" session. */
+export const practiceRequestSchema = z.object({
+  practice: z.object({ domain, difficulty }),
+  mode,
+});
+
 // ---- model output formats ----
 
 export const questionsOutput = z.object({
@@ -31,6 +37,7 @@ export const evaluationOutput = z.object({
   strengths: z.array(z.string()),
   weaknesses: z.array(z.string()),
   suggested_answer: z.string(),
+  suggested_points: z.array(z.string()),
   needs_follow_up: z.boolean(),
   follow_up: z.string().nullable(),
 });

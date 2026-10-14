@@ -17,6 +17,10 @@ export interface SessionConfig {
   mode: AnswerMode;
   /** Topics to focus on within the domain. Empty or unset means any topic. */
   topics?: string[];
+  /** Set on a "try again" session: the finished session it repeats. */
+  retryOf?: string;
+  /** Set on a session built from the user's unsolved questions. */
+  practice?: boolean;
 }
 
 export interface Question {
@@ -56,6 +60,8 @@ export interface Evaluation {
   followUp: string | null;
   /** A model answer that applies the feedback. Unset on older sessions. */
   suggestedAnswer?: string;
+  /** The suggested answer as 3–5 short key points. */
+  suggestedPoints?: string[];
   strengths?: string[];
   weaknesses?: string[];
 }
@@ -111,6 +117,8 @@ export interface Report {
   answersScore: number;
   /** Null when there was nothing to rate it on; the total is then the answers score alone. */
   communicationScore: number | null;
+  /** On a "try again" session: the session it repeats and that session's total. */
+  previous?: { sessionId: string; total: number };
   followUps: number;
   summary: string;
   strengths: string[];
@@ -132,6 +140,12 @@ export interface Report {
     answer?: string | null;
     followUps?: { question: string; answer: string | null }[];
     suggestedAnswer?: string | null;
+    suggestedPoints?: string[];
+    /**
+     * Score the last time this question was answered, before this session:
+     * a number, null if it was skipped, unset if it's new (or an older report).
+     */
+    previousScore?: number | null;
     /** Short bullets from the evaluator. Unset on reports from before they were stored. */
     strengths?: string[];
     weaknesses?: string[];

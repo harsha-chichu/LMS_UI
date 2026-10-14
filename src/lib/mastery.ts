@@ -81,3 +81,23 @@ export function totalsByDifficulty(rows: { difficulty: Difficulty; count: number
   for (const row of rows) totals[row.difficulty] += Number(row.count);
   return totals;
 }
+
+/** How many questions a "practise unsolved" session asks. */
+export const PRACTICE_COUNT = 5;
+
+/**
+ * Bank questions the user has tried but not solved yet (best score below
+ * SOLVED_SCORE, or only ever skipped) at this domain + difficulty, weakest first.
+ */
+export function unsolvedQuestionIds(attempts: Attempt[], domain: Domain, difficulty: Difficulty): string[] {
+  const best = new Map<string, number>();
+  for (const a of attempts) {
+    if (a.domain !== domain || a.difficulty !== difficulty) continue;
+    const score = a.skipped || a.score == null ? 0 : Number(a.score);
+    best.set(a.question_id, Math.max(best.get(a.question_id) ?? 0, score));
+  }
+  return [...best.entries()]
+    .filter(([, score]) => score < SOLVED_SCORE)
+    .sort((a, b) => a[1] - b[1])
+    .map(([id]) => id);
+}

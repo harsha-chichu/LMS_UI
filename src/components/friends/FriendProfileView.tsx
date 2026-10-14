@@ -8,9 +8,11 @@ import { PillLink } from "@/components/common/PillButton";
 import { Avatar, StreakCount, StreakPill } from "@/components/common/UserBits";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { ScoreTrend } from "@/components/profile/ScoreTrend";
+import { SolvedRing } from "@/components/profile/SolvedRing";
 import { ReportBody } from "@/components/report/ReportView";
 import { domainShort } from "@/lib/constants";
-import { removeFriend, useCompletedSessions, useFriendProfile } from "@/lib/data";
+import { removeFriend, useBankCounts, useCompletedSessions, useFriendProfile } from "@/lib/data";
+import { totalsByDifficulty } from "@/lib/mastery";
 import { relativeDay } from "@/lib/dates";
 import { activityFromSessions, personStats } from "@/lib/stats";
 import { cn } from "@/lib/utils";
@@ -29,6 +31,7 @@ export function FriendProfileView() {
   const router = useRouter();
   const { data: friend, error } = useFriendProfile(id);
   const { data: mine } = useCompletedSessions();
+  const { data: bank } = useBankCounts();
   const [removing, setRemoving] = useState(false);
 
   if (error) return <NotAvailable />;
@@ -68,7 +71,13 @@ export function FriendProfileView() {
         ]}
       />
 
-      <Section className="border-t-0">
+      {friend.solved && (
+        <Section className="border-t-0 py-7">
+          <SolvedRing solved={friend.solved} totals={bank ? totalsByDifficulty(bank) : null} />
+        </Section>
+      )}
+
+      <Section className={friend.solved ? undefined : "border-t-0"}>
         <div className="grid grid-cols-[1fr_64px_64px] items-baseline gap-x-3">
           <SectionLabel>you vs {name}</SectionLabel>
           <span className="text-right text-[13px] text-brand">you</span>
