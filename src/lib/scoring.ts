@@ -58,6 +58,13 @@ function agentTip(comms: AgentCommunication[]): string | null {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** Per-question strengths / weaknesses shown on the report. */
+const MAX_BULLETS = 3;
+
+const firstSentence = (s: string) => (s.match(/^[^.!?]*[.!?]/)?.[0] ?? s).trim().toLowerCase();
+const sameTip = (weakness: string, nextTime: string | undefined) =>
+  Boolean(nextTime) && firstSentence(weakness) === firstSentence(nextTime!);
+
 /** Audio-based delivery scores from the eval agent, across every recorded turn. */
 function agentCommunication(results: QuestionResult[]): AgentCommunication[] {
   return results
@@ -149,6 +156,9 @@ export function buildReport(input: {
       answer: r.answer?.text ?? null,
       followUps: r.followUps.map((f) => ({ question: f.question, answer: f.answer?.text ?? null })),
       suggestedAnswer: r.evaluation?.suggestedAnswer ?? null,
+      strengths: r.evaluation?.strengths?.slice(0, MAX_BULLETS) ?? [],
+      // The agent's next-time tip is its first weakness; don't show it twice.
+      weaknesses: (r.evaluation?.weaknesses ?? []).filter((w) => !sameTip(w, r.evaluation?.nextTime)).slice(0, MAX_BULLETS),
     })),
   };
 }
