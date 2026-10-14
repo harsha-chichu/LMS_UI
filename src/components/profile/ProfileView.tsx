@@ -5,7 +5,7 @@ import { Settings } from "lucide-react";
 import { useState } from "react";
 import { AppColumn, BackHeader } from "@/components/common/Layout";
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
-import { Avatar, StreakPill } from "@/components/common/UserBits";
+import { Avatar, StreakCount, StreakPill } from "@/components/common/UserBits";
 import { FriendsLink } from "@/components/friends/FriendsLink";
 import { ProgressTab } from "@/components/profile/ProgressTab";
 import { SavedTab } from "@/components/profile/SavedTab";
@@ -40,7 +40,17 @@ export function ProfileView() {
           <p className="truncate text-[22px] leading-tight font-medium">{profile.name}</p>
           <p className="truncate text-[14px] text-subtle">{profile.email}</p>
         </div>
-        {streak > 0 && <StreakPill days={streak} />}
+        {streak > 0 && (
+          // Phones get the compact flame + number so the name has room; the pill from sm up.
+          <>
+            <span className="shrink-0 sm:hidden">
+              <StreakCount days={streak} />
+            </span>
+            <span className="hidden shrink-0 sm:inline-flex">
+              <StreakPill days={streak} />
+            </span>
+          </>
+        )}
         <div className="-mr-2 flex shrink-0 items-center">
           <FriendsLink />
           <Link
