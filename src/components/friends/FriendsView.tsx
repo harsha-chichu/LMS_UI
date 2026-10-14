@@ -94,7 +94,7 @@ function FindFriends() {
       {shown && shown.length > 0 && (
         <ul className="mt-2">
           {shown.map((p) => (
-            <PersonRow key={p.id} name={p.name} href={p.relation === "friends" ? `/friends/${p.id}` : undefined}>
+            <PersonRow key={p.id} name={p.name} avatarUrl={p.avatar_url} href={p.relation === "friends" ? `/friends/${p.id}` : undefined}>
               <RelationAction person={p} onChange={(r) => setRelation(p.id, r)} />
             </PersonRow>
           ))}
@@ -162,7 +162,7 @@ function Requests() {
       <SectionLabel>requests</SectionLabel>
       <ul className="mt-1">
         {incoming.map((r) => (
-          <PersonRow key={r.id} name={r.name} detail="wants to be friends">
+          <PersonRow key={r.id} name={r.name} avatarUrl={r.avatar_url} detail="wants to be friends">
             <IncomingActions id={r.id} />
           </PersonRow>
         ))}
@@ -204,7 +204,7 @@ function SentRequests() {
       <SectionLabel>sent requests</SectionLabel>
       <ul className="mt-1">
         {outgoing.map((r) => (
-          <PersonRow key={r.id} name={r.name} detail="waiting for them to accept">
+          <PersonRow key={r.id} name={r.name} avatarUrl={r.avatar_url} detail="waiting for them to accept">
             <Chip tone="muted" onClick={() => void removeFriend(r.id).catch(() => {})}>
               cancel
             </Chip>
@@ -265,7 +265,7 @@ function Leaderboard() {
                 >
                   <span className={cn("text-[13px] tabular-nums", i === 0 ? "text-brand" : "text-subtle")}>{i + 1}</span>
                   <span className="flex min-w-0 items-center gap-3">
-                    <Avatar name={r.name || "?"} size={32} />
+                    <Avatar name={r.name || "?"} src={r.avatar_url} size={32} />
                     <span className={cn("truncate text-[16px]", r.is_me && "text-brand")}>{r.is_me ? "you" : r.name}</span>
                   </span>
                   <span className="text-right text-[15px] tabular-nums">{r.stats.thisWeek}</span>

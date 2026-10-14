@@ -28,7 +28,7 @@ export function SetupScreen() {
     <AppColumn className="flex flex-1 flex-col">
       <header className="flex h-20 items-center justify-between md:h-24">
         <Logo />
-        {user && activity && <UserCluster name={user.name} streak={currentStreak(activity)} />}
+        {user && activity && <UserCluster name={user.name} avatarUrl={user.avatarUrl} streak={currentStreak(activity)} />}
       </header>
 
       <div className="mt-4 md:mt-6">

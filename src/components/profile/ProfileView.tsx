@@ -35,7 +35,7 @@ export function ProfileView() {
       <BackHeader title="profile" href="/setup" />
 
       <div className="flex items-center gap-3 pt-4 pb-6 sm:gap-4">
-        <Avatar name={profile.name} size={60} />
+        <Avatar name={profile.name} src={profile.avatarUrl} size={60} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[22px] leading-tight font-medium">{profile.name}</p>
           <p className="truncate text-[14px] text-subtle">{profile.email}</p>

@@ -28,18 +28,20 @@ export function Chip({
 /** Avatar + name (+ optional detail line) with an action on the right. */
 export function PersonRow({
   name,
+  avatarUrl,
   detail,
   href,
   children,
 }: {
   name: string;
+  avatarUrl?: string | null;
   detail?: ReactNode;
   href?: string;
   children?: ReactNode;
 }) {
   const body = (
     <>
-      <Avatar name={name || "?"} size={36} />
+      <Avatar name={name || "?"} src={avatarUrl} size={36} />
       <span className="min-w-0">
         <span className="block truncate text-[16px]">{name || "unnamed"}</span>
         {detail && <span className="mt-0.5 block text-[13px] text-subtle">{detail}</span>}
