@@ -56,3 +56,28 @@ export function topicMastery(attempts: Attempt[]): TopicMastery[] {
     };
   });
 }
+
+/** A question counts as solved once the user has scored this much on it. */
+export const SOLVED_SCORE = 7;
+
+export type ByDifficulty = Record<Difficulty, number>;
+
+/** Distinct questions answered at SOLVED_SCORE or better at least once, per difficulty. */
+export function solvedByDifficulty(attempts: Attempt[]): ByDifficulty {
+  const best = new Map<string, { difficulty: Difficulty; score: number }>();
+  for (const a of attempts) {
+    if (a.skipped || a.score == null) continue;
+    const prev = best.get(a.question_id);
+    if (!prev || a.score > prev.score) best.set(a.question_id, { difficulty: a.difficulty, score: a.score });
+  }
+  const counts: ByDifficulty = { easy: 0, medium: 0, hard: 0 };
+  for (const b of best.values()) if (b.score >= SOLVED_SCORE) counts[b.difficulty] += 1;
+  return counts;
+}
+
+/** Bank size per difficulty, summed over domains (rows from lms_bank_counts). */
+export function totalsByDifficulty(rows: { difficulty: Difficulty; count: number }[]): ByDifficulty {
+  const totals: ByDifficulty = { easy: 0, medium: 0, hard: 0 };
+  for (const row of rows) totals[row.difficulty] += Number(row.count);
+  return totals;
+}

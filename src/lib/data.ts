@@ -6,6 +6,8 @@ import { DEFAULT_PREFERENCES } from "@/lib/constants";
 import { type Attempt, type TopicMastery, topicMastery } from "@/lib/mastery";
 import { getSupabase } from "@/lib/supabase/client";
 import type {
+  Difficulty,
+  Domain,
   FriendOverview,
   FriendRelation,
   FriendRequest,
@@ -34,7 +36,8 @@ const KEYS = {
   friends: "friends:overview",
   friendRequests: "friends:requests",
   friend: (id: string) => `friends:profile:${id}`,
-  mastery: "mastery",
+  attempts: "attempts",
+  bankCounts: "bank:counts",
 };
 
 async function fetchProfile(): Promise<Profile> {
@@ -91,15 +94,21 @@ async function fetchSaved(): Promise<SavedQuestion[]> {
   return (data ?? []) as SavedQuestion[];
 }
 
-/** The user's answered bank questions, rolled up per topic (see src/lib/mastery.ts). */
-async function fetchMastery(): Promise<TopicMastery[]> {
+/** The user's answered bank questions, newest first (see src/lib/mastery.ts). */
+async function fetchAttempts(): Promise<Attempt[]> {
   const { data, error } = await getSupabase()
     .from("lms_question_attempts")
     .select("question_id, session_id, domain, difficulty, topics, score, skipped, created_at")
     .order("created_at", { ascending: false })
     .limit(2000);
   if (error) throw error;
-  return topicMastery((data ?? []) as Attempt[]);
+  return (data ?? []) as Attempt[];
+}
+
+interface BankCount {
+  domain: Domain;
+  difficulty: Difficulty;
+  count: number;
 }
 
 const swrOptions = { revalidateOnFocus: false };
@@ -108,7 +117,15 @@ export const useProfile = () => useSWR(KEYS.profile, fetchProfile, swrOptions);
 export const useCompletedSessions = () => useSWR(KEYS.completed, fetchCompleted, swrOptions);
 export const useSessionRow = (id: string) => useSWR(KEYS.session(id), () => fetchSession(id), swrOptions);
 export const useSavedQuestions = () => useSWR(KEYS.saved, fetchSaved, swrOptions);
-export const useTopicMastery = () => useSWR(KEYS.mastery, fetchMastery, swrOptions);
+export const useAttempts = () => useSWR(KEYS.attempts, fetchAttempts, swrOptions);
+/** Attempts rolled up per topic. Shares the attempts request with useAttempts. */
+export function useTopicMastery(): { data: TopicMastery[] | undefined } {
+  const { data } = useAttempts();
+  return { data: data && topicMastery(data) };
+}
+/** Active questions per domain + difficulty. Needs migration 0008; absent, the ring shows counts only. */
+export const useBankCounts = () =>
+  useSWR(KEYS.bankCounts, () => rpc<BankCount[]>("lms_bank_counts"), { ...swrOptions, shouldRetryOnError: false });
 
 export interface SaveTarget {
   sessionId: string;
@@ -312,7 +329,7 @@ export async function sendSkip(sessionId: string, index: number, target: "main" 
 
 export async function completeSession(sessionId: string) {
   await api(`/api/sessions/${sessionId}/complete`, { method: "POST" });
-  await Promise.all([mutate(KEYS.completed), mutate(KEYS.session(sessionId)), mutate(KEYS.mastery)]);
+  await Promise.all([mutate(KEYS.completed), mutate(KEYS.session(sessionId)), mutate(KEYS.attempts)]);
 }
 
 export async function abandonSession(sessionId: string) {
