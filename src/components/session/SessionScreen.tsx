@@ -68,6 +68,14 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   const recorder = useRecorder();
   const speechSupported = useSpeechSupported();
   const [notice, setNotice] = useState<string | null>(null);
+  // A spoken answer waiting for the user to review its transcript before it's sent.
+  const [recording, setRecording] = useState<{
+    audio: Blob | null;
+    durationSec: number;
+    heard: boolean;
+    index: number;
+    target: "main" | "followup";
+  } | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
 
   const { config, questions } = row;
@@ -79,6 +87,8 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   const prompt = waiting ? waiting.question : result.question.text;
   const input = speechSupported ? state.input : "text";
   const submitting = state.phase === "submitting";
+  // A recording only applies to the question (or follow-up) it was made for.
+  const review = recording?.index === state.index && recording.target === state.target ? recording : null;
 
   // ---- actions ----
 
@@ -103,8 +113,9 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   );
 
   const skip = async () => {
-    // Don't throw away a half-typed answer by accident.
-    if (input === "text" && state.draft.trim() && !window.confirm("discard your typed answer and skip?")) return;
+    // Don't throw away a half-typed (or recorded) answer by accident.
+    if (input === "text" && state.draft.trim() && !window.confirm("discard your answer and skip?")) return;
+    setRecording(null);
     dispatch({ type: "submitting", text: null });
     try {
       dispatch({ type: "synced", result: await sendSkip(row.id, state.index, state.target) });
@@ -115,6 +126,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
 
   const startListening = useCallback(() => {
     setNotice(null);
+    setRecording(null);
     if (!speech.start()) {
       dispatch({ type: "setInput", input: "text" });
       return;
@@ -139,8 +151,11 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
       return;
     }
     const durationSec = state.listenStartedAt ? Math.max(1, Math.round((Date.now() - state.listenStartedAt) / 1000)) : 0;
-    void submit(text, "voice", durationSec, audio);
-  }, [recorder, speech, state.listenStartedAt, submit]);
+    // Don't send yet: put the transcript in the box so the user can fix it first.
+    // The recording goes along when they send, for the delivery scores.
+    setRecording({ audio, durationSec, heard: Boolean(text.trim()), index: state.index, target: state.target });
+    dispatch({ type: "setInput", input: "text", draft: text });
+  }, [dispatch, recorder, speech, state.index, state.listenStartedAt, state.target]);
 
   const typeInstead = useCallback(() => {
     const heard = speech.stop();
@@ -151,7 +166,9 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
 
   const submitDraft = () => {
     const text = state.draft.trim();
-    if (text) void submit(text, "text", 0, null);
+    if (!text) return;
+    if (review) void submit(text, "voice", review.durationSec, review.audio);
+    else void submit(text, "text", 0, null);
   };
 
   const close = async () => {
@@ -270,15 +287,31 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
             <p className="mt-3 text-[14px] text-subtle">tap to answer · or type instead</p>
           </div>
         ) : (
-          <TextComposer
-            value={state.draft}
-            onChange={(draft) => dispatch({ type: "setDraft", draft })}
-            onSend={submitDraft}
-            onVoice={startListening}
-            voiceAvailable={speechSupported}
-            disabled={submitting}
-            placeholder={state.target === "followup" ? "answer the follow-up…" : "type your answer…"}
-          />
+          <>
+            {review && !submitting && (
+              <p className="mb-3 text-center text-[13px] text-subtle">
+                {review.heard
+                  ? "check your answer and fix anything misheard, then send."
+                  : "we couldn't transcribe that — type your answer, or"}{" "}
+                <button type="button" onClick={startListening} className="text-brand hover:brightness-110">
+                  re-record
+                </button>
+              </p>
+            )}
+            <TextComposer
+              value={state.draft}
+              onChange={(draft) => {
+                // Clearing the box entirely drops the recording: it's a typed answer now.
+                if (!draft.trim()) setRecording(null);
+                dispatch({ type: "setDraft", draft });
+              }}
+              onSend={submitDraft}
+              onVoice={startListening}
+              voiceAvailable={speechSupported}
+              disabled={submitting}
+              placeholder={state.target === "followup" ? "answer the follow-up…" : "type your answer…"}
+            />
+          </>
         )}
 
         <div className="mt-5 flex justify-center text-[14px] md:text-[15px]">
