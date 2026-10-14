@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AppColumn, BackHeader } from "@/components/common/Layout";
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { Avatar, StreakPill } from "@/components/common/UserBits";
+import { FriendsLink } from "@/components/friends/FriendsLink";
 import { ProgressTab } from "@/components/profile/ProgressTab";
 import { SavedTab } from "@/components/profile/SavedTab";
 import { SessionsTab } from "@/components/profile/SessionsTab";
@@ -17,8 +18,8 @@ type Tab = (typeof TABS)[number];
 
 /**
  * The profile: who you are, then one tab at a time — progress (the dashboard),
- * sessions (history) and saved questions. Preferences and account live on
- * /settings, behind the gear.
+ * sessions (history) and saved questions. Friends and settings are the two
+ * icons in the header; preferences and account live on /settings.
  */
 export function ProfileView() {
   const { data: profile } = useProfile();
@@ -40,13 +41,16 @@ export function ProfileView() {
           <p className="truncate text-[14px] text-subtle">{profile.email}</p>
         </div>
         {streak > 0 && <StreakPill days={streak} />}
-        <Link
-          href="/settings"
-          aria-label="Settings"
-          className="-mr-2 shrink-0 rounded-full p-2 text-white/80 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
-        >
-          <Settings className="size-5" strokeWidth={1.75} />
-        </Link>
+        <div className="-mr-2 flex shrink-0 items-center">
+          <FriendsLink />
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="rounded-full p-2 text-white/80 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <Settings className="size-5" strokeWidth={1.75} />
+          </Link>
+        </div>
       </div>
 
       <SegmentedPicker<Tab>
