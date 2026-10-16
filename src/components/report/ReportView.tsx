@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
 import { SaveButton } from "@/components/common/SaveButton";
+import { FeedbackForm } from "@/components/feedback/FeedbackForm";
 import { QuestionDetail } from "@/components/report/QuestionDetail";
 import { ScoreRing } from "@/components/report/ScoreRing";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -175,6 +176,7 @@ export function ReportBody({
               view progress
             </Link>
           </nav>
+          <FeedbackForm sessionId={sessionId} reportContext className="mt-8" />
         </div>
       )}
     </AppColumn>

@@ -8,6 +8,7 @@ import { AppColumn, BackHeader, Section, SectionLabel } from "@/components/commo
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { Avatar } from "@/components/common/UserBits";
 import { AccentPicker } from "@/components/profile/AccentPicker";
+import { FeedbackForm } from "@/components/feedback/FeedbackForm";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
 import { DIFFICULTIES } from "@/lib/constants";
 import { passwordProblem } from "@/lib/credentials";
@@ -128,7 +129,7 @@ function PhotoSection({ profile }: { profile: Profile }) {
 
 function AccountSection({ profile }: { profile: Profile }) {
   const router = useRouter();
-  const [open, setOpen] = useState<"profile" | "password" | null>(null);
+  const [open, setOpen] = useState<"profile" | "password" | "feedback" | null>(null);
 
   return (
     <Section className="py-2">
@@ -141,6 +142,16 @@ function AccountSection({ profile }: { profile: Profile }) {
         <ChangePasswordForm onDone={() => setOpen(null)} />
       ) : (
         <RowButton onClick={() => setOpen("password")}>change password</RowButton>
+      )}
+      {open === "feedback" ? (
+        <div className="py-4">
+          <FeedbackForm />
+          <button type="button" onClick={() => setOpen(null)} className="mt-3 text-[14px] text-subtle hover:text-white">
+            cancel
+          </button>
+        </div>
+      ) : (
+        <RowButton onClick={() => setOpen("feedback")}>send feedback</RowButton>
       )}
       <button
         type="button"
