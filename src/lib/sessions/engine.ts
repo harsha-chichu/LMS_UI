@@ -100,9 +100,11 @@ export async function submitAnswer(
   target: Target,
   turn: Turn,
   audio: Blob | null,
+  userId?: string,
 ): Promise<QuestionResult> {
   const r = emptyResult(row, index);
   const { config } = row;
+  const effectiveUserId = userId ?? row.user_id;
 
   if (target === "main" && (r.answer || r.skipped)) throw new SessionError("question already answered", 409);
   const followUp = pendingFollowUp(r);
@@ -123,8 +125,13 @@ export async function submitAnswer(
               domain: agentDomain(config.domain),
               answer: turn.text,
               audio,
+              user_id: effectiveUserId,
             })
-          : await answerFollowUp(r.scoring!.threadId!, { answer: turn.text, audio });
+          : await answerFollowUp(r.scoring!.threadId!, {
+              answer: turn.text,
+              audio,
+              user_id: effectiveUserId,
+            });
       return applyAgentRun(r, run, turn, target);
     } catch (err) {
       warn("answer", err);

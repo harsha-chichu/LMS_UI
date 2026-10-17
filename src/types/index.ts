@@ -93,6 +93,7 @@ export type SessionStatus = "in_progress" | "completed" | "abandoned";
 /** A row of the `sessions` table. */
 export interface SessionRow {
   id: string;
+  user_id?: string;
   config: SessionConfig;
   questions: Question[];
   results: QuestionResult[];

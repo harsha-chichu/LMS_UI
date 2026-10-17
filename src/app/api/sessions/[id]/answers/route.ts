@@ -32,7 +32,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
       throw new SessionError("invalid question");
     }
 
-    const result = await submitAnswer(row, index, target, { text, mode, durationSec }, audio);
+    const result = await submitAnswer(row, index, target, { text, mode, durationSec }, audio, auth.user.id);
     await saveResult(auth.user.id, row, index, result);
     return Response.json({ result });
   } catch (err) {

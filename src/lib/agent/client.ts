@@ -63,15 +63,25 @@ export function startEvaluation(input: {
   domain: string;
   answer?: string;
   audio?: Blob | null;
+  user_id?: string;
+  userId?: string;
 }) {
-  const { audio, ...fields } = input;
-  return call("/evaluations", { method: "POST", body: form(fields, audio) });
+  const { audio, userId, user_id, ...fields } = input;
+  const uid = user_id ?? userId;
+  return call("/evaluations", {
+    method: "POST",
+    body: form({ ...fields, ...(uid ? { user_id: uid } : {}) }, audio),
+  });
 }
 
-export function answerFollowUp(threadId: string, input: { answer?: string; audio?: Blob | null }) {
+export function answerFollowUp(
+  threadId: string,
+  input: { answer?: string; audio?: Blob | null; user_id?: string; userId?: string }
+) {
+  const uid = input.user_id ?? input.userId;
   return call(`/evaluations/${threadId}/followup`, {
     method: "POST",
-    body: form({ answer: input.answer }, input.audio),
+    body: form({ answer: input.answer, ...(uid ? { user_id: uid } : {}) }, input.audio),
   });
 }
 
