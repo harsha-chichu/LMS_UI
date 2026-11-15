@@ -30,6 +30,14 @@ export interface AgentRun {
 }
 
 const BASE = process.env.EVAL_AGENT_URL?.replace(/\/$/, "");
+
+/**
+ * Calls the user waits on. The agent answers once its follow-up gate decides
+ * (one LLM call, plus transcription for a recording sent without text) and
+ * gives up at 40s itself, so this only trips when the agent is down or stuck -
+ * then we fall back to Claude instead of leaving the user waiting.
+ */
+const INTERACTIVE_TIMEOUT_MS = 45_000;
 const TOKEN = process.env.EVAL_AGENT_TOKEN;
 
 export function agentEnabled() {
@@ -70,6 +78,7 @@ export function startEvaluation(input: {
   const uid = user_id ?? userId;
   return call("/evaluations", {
     method: "POST",
+    timeoutMs: INTERACTIVE_TIMEOUT_MS,
     body: form({ ...fields, ...(uid ? { user_id: uid } : {}) }, audio),
   });
 }
@@ -81,12 +90,13 @@ export function answerFollowUp(
   const uid = input.user_id ?? input.userId;
   return call(`/evaluations/${threadId}/followup`, {
     method: "POST",
+    timeoutMs: INTERACTIVE_TIMEOUT_MS,
     body: form({ answer: input.answer, ...(uid ? { user_id: uid } : {}) }, input.audio),
   });
 }
 
 export function skipFollowUp(threadId: string) {
-  return call(`/evaluations/${threadId}/skip-followup`, { method: "POST" });
+  return call(`/evaluations/${threadId}/skip-followup`, { method: "POST", timeoutMs: INTERACTIVE_TIMEOUT_MS });
 }
 
 export function getEvaluation(threadId: string) {

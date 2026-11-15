@@ -144,10 +144,32 @@ export async function submitAnswer(
     target === "main"
       ? { ...r, answer: turn }
       : { ...r, followUps: r.followUps.map((f, i, all) => (i === all.length - 1 ? { ...f, answer: turn } : f)) };
+
+  // With no follow-up possible there's nothing to decide, so the user doesn't wait
+  // for the score: the route scores it after responding (scoreLater), and finalize
+  // picks it up if that hasn't landed by the end.
+  const canFollowUp = target === "main" && config.difficulty !== "easy" && next.followUps.length < MAX_FOLLOW_UPS;
+  if (!canFollowUp) {
+    next.scoring = { engine: "claude", status: "pending" };
+    return next;
+  }
+
   const evaluation = await claudeScore(config, next, target === "main");
   if (target === "main" && evaluation?.needsFollowUp && evaluation.followUp && next.followUps.length < MAX_FOLLOW_UPS) {
     next.followUps = [...next.followUps, { question: evaluation.followUp, skipped: false }];
   }
+  return next;
+}
+
+/** True when submitAnswer left Claude scoring for after the response. */
+export function scoresLater(r: QuestionResult) {
+  return r.scoring?.engine === "claude" && r.scoring.status === "pending";
+}
+
+/** Score a result submitAnswer left pending. Runs after the response is sent. */
+export async function scoreLater(config: SessionConfig, r: QuestionResult): Promise<QuestionResult> {
+  const next = structuredClone(r);
+  await claudeScore(config, next, false);
   return next;
 }
 
@@ -188,9 +210,19 @@ async function settleScores(row: SessionRow, results: QuestionResult[], timeoutM
       pending.map(async (r) => {
         try {
           const run = await getEvaluation(r.scoring!.threadId!);
+          // Delivery scores land after the follow-up decision, so they're usually not
+          // on the answer yet; take them from the run.
+          if (r.answer && !r.answer.communication && run.communication) {
+            r.answer = { ...r.answer, communication: run.communication };
+          }
           if (run.status === "completed" && run.result) {
             r.evaluation = toEvaluation(run.result);
             r.scoring = { ...r.scoring!, status: "done" };
+          } else if (run.status === "pending_followup") {
+            // A follow-up nobody will answer (left unanswered, or asked after the agent's
+            // decision timed out). Close it so the agent scores now instead of us
+            // waiting out the deadline and re-scoring with Claude.
+            await skipFollowUp(r.scoring!.threadId!);
           }
         } catch (err) {
           warn("poll", err);
