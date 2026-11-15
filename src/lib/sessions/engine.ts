@@ -6,11 +6,12 @@ import {
   getEvaluation,
   skipFollowUp,
   startEvaluation,
+  summarize,
 } from "@/lib/agent/client";
-import { agentDomain, toEvaluation } from "@/lib/agent/map";
+import { agentDomain, toEvaluation, toNarrative, toSummaryRequest } from "@/lib/agent/map";
 import { evaluateAnswer, writeNarrative } from "@/lib/llm/service";
 import { emptyResult as blank, pendingFollowUp } from "@/lib/sessions/progress";
-import { buildReport, plainNarrative, type ReportHistory } from "@/lib/scoring";
+import { buildReport, plainNarrative, type ReportHistory, type ReportNarrative } from "@/lib/scoring";
 import { computeSpeechMetrics } from "@/lib/speech-metrics";
 import type { QuestionResult, Report, SessionConfig, SessionRow, Turn } from "@/types";
 
@@ -241,6 +242,21 @@ async function settleScores(row: SessionRow, results: QuestionResult[], timeoutM
   }
 }
 
+/** Session summary: the eval agent first, then Claude; a plain one if both fail. */
+async function writeSummary(input: Parameters<typeof writeNarrative>[0]): Promise<ReportNarrative> {
+  if (agentEnabled()) {
+    try {
+      return toNarrative(await summarize(toSummaryRequest(input)));
+    } catch (err) {
+      warn("summary", err);
+    }
+  }
+  return writeNarrative(input).catch((err) => {
+    console.warn("[claude:report] using a plain summary:", err instanceof Error ? err.message : err);
+    return plainNarrative();
+  });
+}
+
 export async function finalize(
   row: SessionRow,
   history?: ReportHistory,
@@ -257,14 +273,11 @@ export async function finalize(
 
   const turns = results.flatMap((r) => [r.answer, ...r.followUps.map((f) => f.answer)]).filter((t): t is Turn => !!t);
   const metrics = computeSpeechMetrics(turns);
-  const narrative = await writeNarrative({
+  const narrative = await writeSummary({
     domain: row.config.domain,
     difficulty: row.config.difficulty,
     results,
     metrics,
-  }).catch((err) => {
-    console.warn("[claude:report] using a plain summary:", err instanceof Error ? err.message : err);
-    return plainNarrative();
   });
   const report = buildReport({ id: row.id, config: row.config, results, metrics, narrative, history });
   return { results, report };
