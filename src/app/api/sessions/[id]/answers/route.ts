@@ -1,5 +1,6 @@
+import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { SessionError, submitAnswer, type Target } from "@/lib/sessions/engine";
+import { SessionError, scoreLater, scoresLater, submitAnswer, type Target } from "@/lib/sessions/engine";
 import { errorResponse, loadSession, saveResult } from "@/lib/sessions/store";
 import type { AnswerMode } from "@/types";
 
@@ -34,6 +35,18 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
 
     const result = await submitAnswer(row, index, target, { text, mode, durationSec }, audio, auth.user.id);
     await saveResult(auth.user.id, row, index, result);
+
+    if (scoresLater(result)) {
+      // Nothing else writes this question once it's answered with no follow-up left,
+      // so saving the scored copy can't clobber newer input. If the session is
+      // already finished, finalize has scored it and the save is refused.
+      after(async () => {
+        const scored = await scoreLater(row.config, result);
+        await saveResult(auth.user.id, row, index, scored).catch((err) =>
+          console.warn("[claude:evaluate] saving background score failed:", err instanceof Error ? err.message : err),
+        );
+      });
+    }
     return Response.json({ result });
   } catch (err) {
     return errorResponse(err);
