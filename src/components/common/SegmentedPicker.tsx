@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The text-only toggle from the designs: unselected options are grey, the
- * selected one is white with an orange dot underneath.
+ * selected one is full-strength with an orange dot underneath.
  */
 export function SegmentedPicker<T extends string | number>({
   options,
@@ -34,7 +34,7 @@ export function SegmentedPicker<T extends string | number>({
             onClick={() => onChange(opt)}
             className={cn(
               "relative flex flex-col items-center pb-3 text-[17px] transition-colors focus-visible:outline-none focus-visible:after:absolute focus-visible:after:inset-x-[-6px] focus-visible:after:-inset-y-1 focus-visible:after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-brand",
-              selected ? "font-medium text-white" : "text-subtle hover:text-white/80",
+              selected ? "font-medium text-foreground" : "text-subtle hover:text-foreground/80",
             )}
           >
             {format(opt)}

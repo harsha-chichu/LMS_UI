@@ -20,13 +20,13 @@ export function SavedTab({ sessions }: { sessions: CompletedSession[] }) {
       <div className="flex items-baseline justify-between gap-4">
         <SectionLabel>saved questions</SectionLabel>
         {saved.length > 0 && (
-          <p className="text-[13px] text-white/85">
+          <p className="text-[13px] text-foreground/85">
             {saved.length} saved
           </p>
         )}
       </div>
       {saved.length === 0 ? (
-        <p className="mt-3 text-[15px] text-white/70">tap the bookmark on any question to save it here.</p>
+        <p className="mt-3 text-[15px] text-foreground/70">tap the bookmark on any question to save it here.</p>
       ) : (
         <ul className="mt-1">
           {saved.map((q) => {
@@ -40,7 +40,7 @@ export function SavedTab({ sessions }: { sessions: CompletedSession[] }) {
                   {score != null && (
                     <>
                       {" · "}
-                      <span className={cn("tabular-nums", score >= 8 ? "text-brand" : "text-white/80")}>
+                      <span className={cn("tabular-nums", score >= 8 ? "text-brand" : "text-foreground/80")}>
                         {score.toFixed(1)}/10
                       </span>
                     </>
@@ -51,7 +51,7 @@ export function SavedTab({ sessions }: { sessions: CompletedSession[] }) {
             return (
               <li key={q.id} className="flex items-start gap-3 border-b border-line py-4 last:border-b-0">
                 {session ? (
-                  <Link href={`/report/${q.session_id}`} className="min-w-0 flex-1 hover:text-white/80">
+                  <Link href={`/report/${q.session_id}`} className="min-w-0 flex-1 hover:text-foreground/80">
                     {body}
                   </Link>
                 ) : (

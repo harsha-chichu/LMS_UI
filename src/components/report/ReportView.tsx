@@ -60,7 +60,7 @@ export function ReportBody({
       <div className="flex flex-col items-center pt-4 pb-7">
         <ScoreRing score={report.total} />
         {report.previous && <PreviousTotal previous={report.previous} total={report.total} friend={Boolean(friend)} />}
-        <p className="mt-5 text-[13px] text-white/70">
+        <p className="mt-5 text-[13px] text-foreground/70">
           {domainShort(config.domain)} · {config.difficulty} · {report.questions.length} questions
         </p>
         {config.topics?.length ? (
@@ -78,7 +78,7 @@ export function ReportBody({
 
       <Section className="border-t-0">
         <SectionLabel>summary</SectionLabel>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/90">{report.summary}</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-foreground/90">{report.summary}</p>
       </Section>
 
       {report.strengths.length > 0 && (
@@ -121,7 +121,7 @@ export function ReportBody({
           <MetricRow name="filler words" reading={comm.fillers} />
         </dl>
         {comm.tip && (
-          <p className="mt-4 flex gap-2 text-[13px] text-white/70">
+          <p className="mt-4 flex gap-2 text-[13px] text-foreground/70">
             <Lightbulb className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} />
             {comm.tip}
           </p>
@@ -140,7 +140,7 @@ export function ReportBody({
                   <span
                     className={cn(
                       "text-[15px] font-medium tabular-nums",
-                      q.score !== null && q.score >= 8 ? "text-brand" : "text-white",
+                      q.score !== null && q.score >= 8 ? "text-brand" : "text-foreground",
                     )}
                   >
                     {q.score === null ? "–" : q.score.toFixed(1)}
@@ -171,8 +171,8 @@ export function ReportBody({
       {!friend && (
         <div className="border-t border-line pt-7">
           <NextSteps sessionId={sessionId} />
-          <nav className="mt-5 flex justify-center text-[13px] text-white/70">
-            <Link href="/profile" className="hover:text-white">
+          <nav className="mt-5 flex justify-center text-[13px] text-foreground/70">
+            <Link href="/profile" className="hover:text-foreground">
               view progress
             </Link>
           </nav>
@@ -196,7 +196,7 @@ function PreviousTotal({
   const delta = total - previous.total;
   const body = (
     <>
-      <span className="tabular-nums text-white/70">{previous.total}</span>
+      <span className="tabular-nums text-foreground/70">{previous.total}</span>
       <span className="text-subtle"> → </span>
       <span className="tabular-nums">{total}</span>
       <span className={cn("ml-2 tabular-nums", delta > 0 ? "text-brand" : "text-subtle")}>
@@ -232,10 +232,10 @@ function MetricRow({ name, reading }: { name: string; reading: MetricReading }) 
       <dt className="text-[15px]">{name}</dt>
       <dd className="flex gap-1" aria-label={`${reading.level} of 5`}>
         {Array.from({ length: 5 }, (_, i) => (
-          <span key={i} className={cn("h-[3px] w-3.5 rounded-full", i < reading.level ? "bg-brand" : "bg-white/15")} />
+          <span key={i} className={cn("h-[3px] w-3.5 rounded-full", i < reading.level ? "bg-brand" : "bg-foreground/15")} />
         ))}
       </dd>
-      <dd className="text-[13px] text-white/70">{reading.label}</dd>
+      <dd className="text-[13px] text-foreground/70">{reading.label}</dd>
     </div>
   );
 }
@@ -253,7 +253,7 @@ function NextSteps({ sessionId }: { sessionId: string }) {
         <PillLink
           href="/setup"
           size="lg"
-          className="border border-white/15 bg-transparent text-white hover:bg-white/5 hover:brightness-100 sm:flex-1"
+          className="border border-foreground/15 bg-transparent text-foreground hover:bg-foreground/5 hover:brightness-100 sm:flex-1"
         >
           new session
         </PillLink>

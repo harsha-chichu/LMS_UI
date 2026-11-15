@@ -89,7 +89,7 @@ function FindFriends() {
         </p>
       )}
       {shown && shown.length === 0 && (
-        <p className="mt-3 text-[14px] text-white/70">no one found. try their full email address.</p>
+        <p className="mt-3 text-[14px] text-foreground/70">no one found. try their full email address.</p>
       )}
       {shown && shown.length > 0 && (
         <ul className="mt-2">
@@ -183,7 +183,7 @@ function IncomingActions({ id }: { id: string }) {
         type="button"
         disabled={busy}
         onClick={() => respond(false)}
-        className="text-[14px] text-subtle hover:text-white disabled:opacity-50"
+        className="text-[14px] text-subtle hover:text-foreground disabled:opacity-50"
       >
         decline
       </button>
@@ -223,7 +223,7 @@ function Leaderboard() {
     return (
       <Section>
         <SectionLabel>leaderboard</SectionLabel>
-        <p className="mt-3 text-[15px] text-white/70">friends aren&apos;t available right now.</p>
+        <p className="mt-3 text-[15px] text-foreground/70">friends aren&apos;t available right now.</p>
       </Section>
     );
   }
@@ -246,7 +246,7 @@ function Leaderboard() {
         {hasFriends && <span className="text-[12px] text-subtle">ranked by this week</span>}
       </div>
       {!hasFriends ? (
-        <p className="mt-3 text-[15px] text-white/70">add friends to compare progress — only friends can see it.</p>
+        <p className="mt-3 text-[15px] text-foreground/70">add friends to compare progress — only friends can see it.</p>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-[20px_1fr_48px_44px_44px] items-center gap-x-3 pb-2 text-[12px] text-subtle">
@@ -261,7 +261,7 @@ function Leaderboard() {
               <li key={r.id} className="border-t border-line">
                 <Link
                   href={r.is_me ? "/profile" : `/friends/${r.id}`}
-                  className="grid grid-cols-[20px_1fr_48px_44px_44px] items-center gap-x-3 py-3.5 hover:text-white/80"
+                  className="grid grid-cols-[20px_1fr_48px_44px_44px] items-center gap-x-3 py-3.5 hover:text-foreground/80"
                 >
                   <span className={cn("text-[13px] tabular-nums", i === 0 ? "text-brand" : "text-subtle")}>{i + 1}</span>
                   <span className="flex min-w-0 items-center gap-3">

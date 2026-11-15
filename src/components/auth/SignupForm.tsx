@@ -31,7 +31,7 @@ export function SignupForm() {
         title="check your inbox"
         subtitle={`we sent a confirmation link to ${sentTo}. open it on this device to finish creating your account.`}
         footer={
-          <p className="text-[15px] text-white/80">
+          <p className="text-[15px] text-foreground/80">
             already confirmed?{" "}
             <Link href="/login" className="text-brand hover:brightness-110">
               log in
@@ -39,7 +39,7 @@ export function SignupForm() {
           </p>
         }
       >
-        <button type="button" onClick={() => setSentTo(null)} className="text-[14px] text-subtle hover:text-white">
+        <button type="button" onClick={() => setSentTo(null)} className="text-[14px] text-subtle hover:text-foreground">
           wrong email? go back
         </button>
       </AuthShell>
@@ -52,7 +52,7 @@ export function SignupForm() {
       subtitle="takes a minute. your sessions and reports are saved to your profile."
       footer={
         <>
-          <p className="text-[15px] text-white/80">
+          <p className="text-[15px] text-foreground/80">
             already have an account?{" "}
             <Link href="/login" className="text-brand hover:brightness-110">
               log in

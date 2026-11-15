@@ -28,8 +28,8 @@ export function SaveButton({ label, className, ...target }: SaveTarget & { label
         setBusy(false);
       }}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full p-2 transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60",
-        on ? "text-brand" : "text-subtle hover:text-white",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full p-2 transition-colors hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60",
+        on ? "text-brand" : "text-subtle hover:text-foreground",
         label && "pr-3",
         className,
       )}

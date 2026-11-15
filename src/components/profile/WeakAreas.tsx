@@ -79,7 +79,7 @@ export function WeakAreas() {
                         setStarting(key);
                         practise(domain as Domain, difficulty as Difficulty, mode);
                       }}
-                      className="h-8 shrink-0 rounded-full border border-brand/60 px-3.5 text-[13px] text-white transition-colors hover:bg-brand/10 disabled:opacity-50"
+                      className="h-8 shrink-0 rounded-full border border-brand/60 px-3.5 text-[13px] text-foreground transition-colors hover:bg-brand/10 disabled:opacity-50"
                     >
                       {pending && starting === key
                         ? "preparing…"
@@ -103,14 +103,14 @@ export function WeakAreas() {
                             disabled={pending}
                             onClick={() => practiseTopic(t)}
                             aria-label={`practise ${t.topic}`}
-                            className="group flex w-full items-center justify-between gap-4 rounded-lg px-2 py-1.5 text-left text-[14px] transition-colors hover:bg-white/[0.04] disabled:opacity-60"
+                            className="group flex w-full items-center justify-between gap-4 rounded-lg px-2 py-1.5 text-left text-[14px] transition-colors hover:bg-foreground/[0.04] disabled:opacity-60"
                           >
-                            <span className="truncate text-white/80 group-hover:text-white">{t.topic}</span>
+                            <span className="truncate text-foreground/80 group-hover:text-foreground">{t.topic}</span>
                             <span className="flex shrink-0 items-center gap-2">
                               <span
                                 className={cn(
                                   "tabular-nums",
-                                  t.answered === 0 ? "text-subtle" : t.recentAverage < 5 ? "text-white/90" : "text-subtle",
+                                  t.answered === 0 ? "text-subtle" : t.recentAverage < 5 ? "text-foreground/90" : "text-subtle",
                                 )}
                               >
                                 {pending && starting === rowKey
@@ -119,7 +119,7 @@ export function WeakAreas() {
                                     ? "skipped"
                                     : `${t.recentAverage.toFixed(1)}/10`}
                               </span>
-                              <ChevronRight className="size-4 text-subtle group-hover:text-white" strokeWidth={1.75} />
+                              <ChevronRight className="size-4 text-subtle group-hover:text-foreground" strokeWidth={1.75} />
                             </span>
                           </button>
                         </li>
@@ -138,7 +138,7 @@ export function WeakAreas() {
                     )}
                   </ul>
                 ) : (
-                  <p className="mt-1.5 text-[14px] text-white/70">no weak topics here — try a harder level.</p>
+                  <p className="mt-1.5 text-[14px] text-foreground/70">no weak topics here — try a harder level.</p>
                 )}
                 {mastered.length > 0 && (
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -146,7 +146,7 @@ export function WeakAreas() {
                     {mastered.map((t) => (
                       <span
                         key={t.topic}
-                        className="inline-flex items-center gap-1 rounded-full border border-brand/50 px-2.5 py-0.5 text-[12px] text-white/85"
+                        className="inline-flex items-center gap-1 rounded-full border border-brand/50 px-2.5 py-0.5 text-[12px] text-foreground/85"
                       >
                         <Check className="size-3 text-brand" strokeWidth={2.25} />
                         {t.topic}

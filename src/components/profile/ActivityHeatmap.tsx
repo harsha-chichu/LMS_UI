@@ -1,7 +1,7 @@
 import { heatmap, longestStreak } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
-const LEVEL_CLASS = ["bg-[#1a1a1a]", "bg-(--heat-1)", "bg-(--heat-2)", "bg-(--heat-3)", "bg-brand"];
+const LEVEL_CLASS = ["bg-(--heat-0)", "bg-(--heat-1)", "bg-(--heat-2)", "bg-(--heat-3)", "bg-brand"];
 
 export function ActivityHeatmap({ activity }: { activity: Record<string, number> }) {
   const { columns, months, total } = heatmap(activity);
@@ -11,7 +11,7 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
     <div>
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-[13px] text-subtle">activity</h2>
-        <p className="text-[13px] text-white/85">
+        <p className="text-[13px] text-foreground/85">
           {total} session{total === 1 ? "" : "s"} in the last 6 months
         </p>
       </div>
@@ -38,7 +38,7 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
                   className={cn(
                     "aspect-square rounded-[3px]",
                     LEVEL_CLASS[cell.level],
-                    cell.isToday && "ring-1 ring-white ring-offset-1 ring-offset-black",
+                    cell.isToday && "ring-1 ring-foreground ring-offset-1 ring-offset-background",
                   )}
                 />
               ) : (

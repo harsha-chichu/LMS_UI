@@ -103,14 +103,14 @@ export function FriendProfileView() {
       <Section>
         <SectionLabel>recent sessions</SectionLabel>
         {sessions.length === 0 ? (
-          <p className="mt-3 text-[15px] text-white/70">no finished sessions yet.</p>
+          <p className="mt-3 text-[15px] text-foreground/70">no finished sessions yet.</p>
         ) : (
           <ul className="mt-1">
             {sessions.slice(0, 10).map((s) => (
               <li key={s.id} className="border-b border-line last:border-b-0">
                 <Link
                   href={`/friends/${id}/report/${s.id}`}
-                  className="flex items-center justify-between gap-4 py-4 hover:text-white/80"
+                  className="flex items-center justify-between gap-4 py-4 hover:text-foreground/80"
                 >
                   <span className="text-[15px]">
                     {relativeDay(s.completed_at)} · {domainShort(s.config.domain)} · {s.config.difficulty}
@@ -137,7 +137,7 @@ export function FriendProfileView() {
               setRemoving(false);
             }
           }}
-          className="text-[14px] text-subtle hover:text-white disabled:opacity-50"
+          className="text-[14px] text-subtle hover:text-foreground disabled:opacity-50"
         >
           {removing ? "removing…" : "remove friend"}
         </button>
@@ -152,10 +152,10 @@ function CompareRow({ label, mine, theirs }: { label: string; mine: number | nul
   return (
     <div className="grid grid-cols-[1fr_64px_64px] items-center gap-x-3 border-b border-line py-3 last:border-b-0">
       <dt className="text-[15px]">{label}</dt>
-      <dd className={cn("text-right text-[15px] tabular-nums", a > b ? "font-medium text-brand" : "text-white/85")}>
+      <dd className={cn("text-right text-[15px] tabular-nums", a > b ? "font-medium text-brand" : "text-foreground/85")}>
         {mine ?? "–"}
       </dd>
-      <dd className={cn("text-right text-[15px] tabular-nums", b > a ? "font-medium text-brand" : "text-white/85")}>
+      <dd className={cn("text-right text-[15px] tabular-nums", b > a ? "font-medium text-brand" : "text-foreground/85")}>
         {theirs ?? "–"}
       </dd>
     </div>

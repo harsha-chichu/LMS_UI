@@ -56,7 +56,7 @@ export function ProfileView() {
           <Link
             href="/settings"
             aria-label="Settings"
-            className="rounded-full p-2 text-white/80 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+            className="rounded-full p-2 text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
           >
             <Settings className="size-5" strokeWidth={1.75} />
           </Link>

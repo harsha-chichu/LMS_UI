@@ -41,7 +41,7 @@ export function Avatar({
   }
   return (
     <span
-      className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-brand font-medium text-black", className)}
+      className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-brand font-medium text-primary-foreground", className)}
       style={{ width: size, height: size, fontSize: size * 0.4 }}
       aria-hidden
     >
@@ -52,7 +52,7 @@ export function Avatar({
 
 export function StreakCount({ days }: { days: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[15px] text-white/80" title={`${days} day streak`}>
+    <span className="inline-flex items-center gap-1.5 text-[15px] text-foreground/80" title={`${days} day streak`}>
       <StreakFlame className="size-[18px]" />
       {days}
       <span className="sr-only">day streak</span>

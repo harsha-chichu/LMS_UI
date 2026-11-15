@@ -53,8 +53,8 @@ export function TopicPicker({
               className={cn(
                 chip,
                 selected
-                  ? "border-brand bg-brand/15 text-white"
-                  : "border-line text-white/70 hover:text-white disabled:opacity-40 disabled:hover:text-white/70",
+                  ? "border-brand bg-brand/15 text-foreground"
+                  : "border-line text-foreground/70 hover:text-foreground disabled:opacity-40 disabled:hover:text-foreground/70",
               )}
             >
               {topic}
@@ -67,7 +67,7 @@ export function TopicPicker({
             type="button"
             aria-label={`remove ${topic}`}
             onClick={() => toggle(topic)}
-            className={cn(chip, "border-brand bg-brand/15 text-white")}
+            className={cn(chip, "border-brand bg-brand/15 text-foreground")}
           >
             {topic}
             <X className="size-3.5" strokeWidth={2} aria-hidden />
@@ -89,13 +89,13 @@ export function TopicPicker({
           disabled={full}
           placeholder={full ? `up to ${MAX_TOPICS} topics` : "add your own topic"}
           aria-label="add your own topic"
-          className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-white placeholder:text-subtle focus:outline-none disabled:cursor-not-allowed"
+          className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground placeholder:text-subtle focus:outline-none disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           aria-label="add topic"
           disabled={full || !draft.trim()}
-          className="rounded-full p-1.5 text-brand transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-brand disabled:text-subtle"
+          className="rounded-full p-1.5 text-brand transition-colors hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-brand disabled:text-subtle"
         >
           <Plus className="size-4" strokeWidth={2} />
         </button>

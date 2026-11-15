@@ -9,7 +9,7 @@ export function FeedbackPreview() {
   return (
     <figure
       aria-label="Example of the feedback on one question"
-      className="w-full rounded-[28px] border border-white/10 bg-[#050505] p-5 text-[14px] md:p-6"
+      className="w-full rounded-[28px] border border-foreground/10 bg-surface p-5 text-[14px] md:p-6"
     >
       <div className="flex items-start justify-between gap-4">
         <div>

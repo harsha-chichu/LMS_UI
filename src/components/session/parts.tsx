@@ -18,7 +18,7 @@ export function ProgressBars({ total, current, className }: { total: number; cur
           className={cn(
             "h-[3px] rounded-full transition-colors",
             total > 6 ? "w-4 md:w-6" : "w-6 md:w-8",
-            i < current ? "bg-white/55" : i === current ? "bg-brand" : "bg-white/15",
+            i < current ? "bg-foreground/55" : i === current ? "bg-brand" : "bg-foreground/15",
           )}
         />
       ))}
@@ -33,12 +33,12 @@ export function SessionHeader({ total, current, onClose }: { total: number; curr
         type="button"
         onClick={onClose}
         aria-label="End session"
-        className="-ml-2 rounded-full p-2 text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+        className="-ml-2 rounded-full p-2 text-foreground/80 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
       >
         <X className="size-5" />
       </button>
       <ProgressBars total={total} current={current} className="justify-self-center" />
-      <span className="justify-self-end text-[14px] tabular-nums text-white/80">
+      <span className="justify-self-end text-[14px] tabular-nums text-foreground/80">
         {current + 1}/{total}
       </span>
     </header>
@@ -59,7 +59,7 @@ export function AnswerBubble({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        "ml-auto w-fit max-w-[88%] rounded-[18px] bg-bubble px-5 py-4 text-[14px] leading-relaxed text-white/95 md:text-[15px]",
+        "ml-auto w-fit max-w-[88%] rounded-[18px] bg-bubble px-5 py-4 text-[14px] leading-relaxed text-foreground/95 md:text-[15px]",
         className,
       )}
     >
@@ -87,7 +87,7 @@ export function MicButton({
       type="button"
       aria-label="Answer by voice"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-brand text-black transition-[filter,transform] hover:brightness-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand disabled:opacity-40",
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-brand text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand disabled:opacity-40",
         className,
       )}
       style={{ width: size, height: size }}
@@ -107,7 +107,7 @@ export function RoundIconButton({
     <button
       type="button"
       className={cn(
-        "inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-surface-2 text-white/85 transition-colors hover:bg-[#2a2a2a] focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-40",
+        "inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground/85 transition-colors hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-40",
         className,
       )}
       {...props}

@@ -11,18 +11,18 @@ export function SessionsTab({ sessions }: { sessions: CompletedSession[] }) {
       <div className="flex items-baseline justify-between gap-4">
         <SectionLabel>all sessions</SectionLabel>
         {sessions.length > 0 && (
-          <p className="text-[13px] text-white/85">
+          <p className="text-[13px] text-foreground/85">
             {sessions.length} session{sessions.length === 1 ? "" : "s"}
           </p>
         )}
       </div>
       {sessions.length === 0 ? (
-        <p className="mt-3 text-[15px] text-white/70">no sessions yet — your reports will show up here.</p>
+        <p className="mt-3 text-[15px] text-foreground/70">no sessions yet — your reports will show up here.</p>
       ) : (
         <ul className="mt-1">
           {sessions.map((s) => (
             <li key={s.id} className="border-b border-line last:border-b-0">
-              <Link href={`/report/${s.id}`} className="flex items-center justify-between gap-4 py-4 hover:text-white/80">
+              <Link href={`/report/${s.id}`} className="flex items-center justify-between gap-4 py-4 hover:text-foreground/80">
                 <span className="text-[15px]">
                   {relativeDay(s.completed_at)} · {domainShort(s.config.domain)} · {s.config.difficulty}
                   {topicsShort(s.config.topics, 1) && (

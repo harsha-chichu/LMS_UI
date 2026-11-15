@@ -10,6 +10,14 @@ const matches = (path: string, prefixes: string[]) =>
 
 /** Refreshes the Supabase session cookie and gates app routes. */
 export async function proxy(request: NextRequest) {
+  // A sign-in whose return address isn't on Supabase's allow list comes back
+  // to the Site URL as /?code=…; hand it to the callback instead of dropping it.
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_KEY, {

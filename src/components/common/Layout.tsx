@@ -15,7 +15,7 @@ export function BackHeader({ title, href }: { title: string; href: string }) {
       <Link
         href={href}
         aria-label="Back"
-        className="absolute left-0 -ml-2 rounded-full p-2 text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+        className="absolute left-0 -ml-2 rounded-full p-2 text-foreground/80 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
       >
         <ChevronLeft className="size-5" />
       </Link>

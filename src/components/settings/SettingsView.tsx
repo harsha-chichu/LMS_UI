@@ -90,7 +90,7 @@ function PhotoSection({ profile }: { profile: Profile }) {
             type="button"
             disabled={pending !== null}
             onClick={() => input.current?.click()}
-            className="h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-black hover:brightness-110 disabled:opacity-50"
+            className="h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
           >
             {pending === "upload" ? "uploading…" : profile.avatarUrl ? "change photo" : "upload photo"}
           </button>
@@ -99,7 +99,7 @@ function PhotoSection({ profile }: { profile: Profile }) {
               type="button"
               disabled={pending !== null}
               onClick={() => void run("remove", () => removeAvatar(profile))}
-              className="text-[14px] text-subtle hover:text-white disabled:opacity-50"
+              className="text-[14px] text-subtle hover:text-foreground disabled:opacity-50"
             >
               {pending === "remove" ? "removing…" : "remove photo"}
             </button>
@@ -146,7 +146,7 @@ function AccountSection({ profile }: { profile: Profile }) {
       {open === "feedback" ? (
         <div className="py-4">
           <FeedbackForm />
-          <button type="button" onClick={() => setOpen(null)} className="mt-3 text-[14px] text-subtle hover:text-white">
+          <button type="button" onClick={() => setOpen(null)} className="mt-3 text-[14px] text-subtle hover:text-foreground">
             cancel
           </button>
         </div>
@@ -173,7 +173,7 @@ function RowButton({ children, onClick }: { children: React.ReactNode; onClick: 
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between py-4 text-left text-[16px] hover:text-white/80"
+      className="flex w-full items-center justify-between py-4 text-left text-[16px] hover:text-foreground/80"
     >
       {children}
       <ChevronRight className="size-4 text-subtle" />
@@ -215,11 +215,11 @@ function InlineForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-black hover:brightness-110 disabled:opacity-50"
+          className="h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-primary-foreground hover:brightness-110 disabled:opacity-50"
         >
           {pending ? "saving…" : "save"}
         </button>
-        <button type="button" onClick={onCancel} className="text-[14px] text-subtle hover:text-white">
+        <button type="button" onClick={onCancel} className="text-[14px] text-subtle hover:text-foreground">
           cancel
         </button>
       </div>

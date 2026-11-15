@@ -23,7 +23,7 @@ export function LoginForm() {
       title="welcome back"
       subtitle="log in to pick up where you left off."
       footer={
-        <p className="text-[15px] text-white/80">
+        <p className="text-[15px] text-foreground/80">
           new here?{" "}
           <Link href="/signup" className="text-brand hover:brightness-110">
             create an account
@@ -67,7 +67,7 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           aside={
-            <Link href="/forgot-password" className="text-[14px] text-subtle hover:text-white">
+            <Link href="/forgot-password" className="text-[14px] text-subtle hover:text-foreground">
               forgot password?
             </Link>
           }

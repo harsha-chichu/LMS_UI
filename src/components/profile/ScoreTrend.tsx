@@ -18,7 +18,7 @@ export function ScoreTrend({ reports }: { reports: Report[] }) {
     <div>
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-[13px] text-subtle">score trend</h2>
-        <p className="text-[13px] text-white/85">
+        <p className="text-[13px] text-foreground/85">
           {points.length < 2
             ? "complete two sessions to see a trend"
             : `${delta >= 0 ? "+" : ""}${delta} since your first session`}

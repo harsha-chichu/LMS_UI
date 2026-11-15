@@ -12,7 +12,7 @@ const sizes: Record<Size, string> = {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2.5 rounded-full bg-brand font-medium text-black transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2.5 rounded-full bg-brand font-medium text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50";
 
 interface Common {
   size?: Size;

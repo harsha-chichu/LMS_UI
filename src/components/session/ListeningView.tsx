@@ -47,13 +47,13 @@ export function ListeningView({
       role="dialog"
       aria-modal="true"
       aria-label="Recording your answer"
-      className="fixed inset-0 z-50 flex flex-col bg-black"
+      className="fixed inset-0 z-50 flex flex-col bg-background"
     >
       <div className="mx-auto flex w-full max-w-[520px] flex-1 flex-col px-5 pt-6 pb-8 md:px-0">
         <p className="text-center text-[14px] text-subtle tabular-nums">
           {error ? "stopped" : "listening"} · {formatClock(elapsed)}
         </p>
-        <p className="mx-auto mt-4 max-w-[440px] text-center text-[14px] leading-relaxed text-white/75 md:text-[15px]">
+        <p className="mx-auto mt-4 max-w-[440px] text-center text-[14px] leading-relaxed text-foreground/75 md:text-[15px]">
           {prompt}
         </p>
 
@@ -69,7 +69,7 @@ export function ListeningView({
               </>
             )}
             <span aria-hidden className="absolute inset-[16px] rounded-full border border-brand/20" />
-            <span className="flex size-[128px] items-center justify-center rounded-full bg-bubble ring-1 ring-brand/80 ring-offset-4 ring-offset-black">
+            <span className="flex size-[128px] items-center justify-center rounded-full bg-bubble ring-1 ring-brand/80 ring-offset-4 ring-offset-background">
               <Mic className="size-8 text-brand" strokeWidth={1.75} />
             </span>
           </div>
@@ -94,7 +94,7 @@ export function ListeningView({
             type="button"
             onClick={onCancel}
             aria-label="Discard answer"
-            className="inline-flex size-[60px] items-center justify-center rounded-full bg-surface-2 text-white transition-colors hover:bg-[#2a2a2a] focus-visible:outline-2 focus-visible:outline-brand"
+            className="inline-flex size-[60px] items-center justify-center rounded-full bg-surface-2 text-foreground transition-colors hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-brand"
           >
             <X className="size-6" strokeWidth={1.75} />
           </button>
@@ -103,7 +103,7 @@ export function ListeningView({
               type="button"
               onClick={onTypeInstead}
               aria-label="Type instead"
-              className="inline-flex size-[60px] items-center justify-center rounded-full bg-brand text-black hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              className="inline-flex size-[60px] items-center justify-center rounded-full bg-brand text-primary-foreground hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               <Keyboard className="size-6" strokeWidth={1.75} />
             </button>
@@ -112,7 +112,7 @@ export function ListeningView({
               type="button"
               onClick={onSubmit}
               aria-label="Review answer"
-              className="inline-flex size-[60px] items-center justify-center rounded-full bg-brand text-black hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              className="inline-flex size-[60px] items-center justify-center rounded-full bg-brand text-primary-foreground hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               <Check className="size-6" strokeWidth={2} />
             </button>

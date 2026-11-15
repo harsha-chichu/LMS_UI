@@ -123,12 +123,12 @@ export function MicCheck() {
           <p className="mt-1 text-[14px] text-subtle">make sure we can hear you before you start</p>
         </div>
         {phase === "testing" ? (
-          <button type="button" onClick={() => void finish()} className={cn(btn, "bg-surface-2 text-white hover:bg-[#2a2a2a]")}>
+          <button type="button" onClick={() => void finish()} className={cn(btn, "bg-surface-2 text-foreground hover:bg-surface-3")}>
             <Square className="size-4" strokeWidth={2} />
             stop
           </button>
         ) : (
-          <button type="button" onClick={test} className={cn(btn, "bg-surface-2 text-brand hover:bg-[#2a2a2a]")}>
+          <button type="button" onClick={test} className={cn(btn, "bg-surface-2 text-brand hover:bg-surface-3")}>
             {phase === "done" ? <RotateCcw className="size-4" strokeWidth={2} /> : <Mic className="size-4" strokeWidth={2} />}
             {phase === "done" ? "try again" : "test mic"}
           </button>
@@ -144,14 +144,14 @@ export function MicCheck() {
             {Array.from({ length: BARS }, (_, i) => (
               <span
                 key={i}
-                className={cn("w-1.5 rounded-full transition-colors", i < lit ? "bg-brand" : "bg-white/15")}
+                className={cn("w-1.5 rounded-full transition-colors", i < lit ? "bg-brand" : "bg-foreground/15")}
                 style={{ height: `${30 + (i / (BARS - 1)) * 70}%` }}
               />
             ))}
           </div>
 
           {live && (
-            <p className="mt-4 min-h-[1.5em] text-[15px] leading-relaxed text-white/85">
+            <p className="mt-4 min-h-[1.5em] text-[15px] leading-relaxed text-foreground/85">
               {speech.transcript || <span className="text-subtle">your words will appear here…</span>}
             </p>
           )}
@@ -163,7 +163,7 @@ export function MicCheck() {
           aria-live="polite"
           className={cn(
             "mt-4 text-[14px] leading-relaxed",
-            status.tone === "ok" ? "text-brand" : status.tone === "warn" ? "text-white/80" : "text-subtle",
+            status.tone === "ok" ? "text-brand" : status.tone === "warn" ? "text-foreground/80" : "text-subtle",
           )}
         >
           {status.text}
@@ -171,7 +171,7 @@ export function MicCheck() {
       )}
 
       {phase === "done" && mic.recordingUrl && (
-        <button type="button" onClick={playBack} className={cn(btn, "mt-4 -ml-1 px-3 text-white/85 hover:bg-white/5")}>
+        <button type="button" onClick={playBack} className={cn(btn, "mt-4 -ml-1 px-3 text-foreground/85 hover:bg-foreground/5")}>
           {playing ? <Square className="size-4" strokeWidth={2} /> : <Play className="size-4" strokeWidth={2} />}
           {playing ? "stop playback" : "play back your recording"}
         </button>

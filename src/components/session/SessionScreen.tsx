@@ -214,8 +214,8 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
           </>
         ) : (
           <>
-            <span className="size-10 animate-spin rounded-full border-2 border-white/10 border-t-brand" aria-hidden />
-            <p className="text-[16px] text-white/80">scoring your session…</p>
+            <span className="size-10 animate-spin rounded-full border-2 border-foreground/10 border-t-brand" aria-hidden />
+            <p className="text-[16px] text-foreground/80">scoring your session…</p>
             <p className="text-[13px] text-subtle">this can take up to a minute</p>
           </>
         )}
@@ -270,7 +270,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
         )}
       </section>
 
-      <div className="sticky bottom-0 bg-black pt-6">
+      <div className="sticky bottom-0 bg-background pt-6">
         {state.error && (
           <p role="alert" className="mb-3 text-center text-[14px] text-brand">
             {state.error}
@@ -319,7 +319,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
             type="button"
             disabled={submitting}
             onClick={skip}
-            className="text-subtle hover:text-white disabled:opacity-40"
+            className="text-subtle hover:text-foreground disabled:opacity-40"
           >
             {state.target === "followup" ? "skip follow-up" : "skip question"}
           </button>

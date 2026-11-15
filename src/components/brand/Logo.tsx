@@ -6,7 +6,7 @@ export function Logo({ className, href = "/" }: { className?: string; href?: str
     <Link
       href={href}
       aria-label="LMS home"
-      className={cn("text-xl font-semibold tracking-tight text-white", className)}
+      className={cn("text-xl font-semibold tracking-tight text-foreground", className)}
     >
       LMS<span className="text-brand">.</span>
     </Link>

@@ -17,7 +17,7 @@ export function Chip({
       type="button"
       className={cn(
         chipBase,
-        tone === "brand" ? "bg-brand text-black hover:brightness-110" : "bg-surface-2 text-white/85 hover:bg-[#2a2a2a]",
+        tone === "brand" ? "bg-brand text-primary-foreground hover:brightness-110" : "bg-surface-2 text-foreground/85 hover:bg-surface-3",
         className,
       )}
       {...props}
@@ -51,7 +51,7 @@ export function PersonRow({
   return (
     <li className="flex items-center gap-3 border-b border-line py-3.5 last:border-b-0">
       {href ? (
-        <Link href={href} className="flex min-w-0 flex-1 items-center gap-3 hover:text-white/80">
+        <Link href={href} className="flex min-w-0 flex-1 items-center gap-3 hover:text-foreground/80">
           {body}
         </Link>
       ) : (

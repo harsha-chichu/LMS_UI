@@ -43,7 +43,7 @@ export function TextComposer({
         e.preventDefault();
         if (canSend) onSend();
       }}
-      className="flex items-end gap-2 rounded-[28px] bg-[#161616] py-2 pr-2 pl-5 ring-1 ring-white/5 focus-within:ring-white/15"
+      className="flex items-end gap-2 rounded-[28px] bg-surface py-2 pr-2 pl-5 ring-1 ring-foreground/5 focus-within:ring-foreground/15"
     >
       <label htmlFor="answer" className="sr-only">
         your answer
@@ -62,7 +62,7 @@ export function TextComposer({
             if (canSend) onSend();
           }
         }}
-        className="my-2 max-h-40 min-h-7 flex-1 resize-none bg-transparent text-[15px] leading-relaxed text-white outline-none placeholder:text-subtle md:text-[16px]"
+        className="my-2 max-h-40 min-h-7 flex-1 resize-none bg-transparent text-[15px] leading-relaxed text-foreground outline-none placeholder:text-subtle md:text-[16px]"
       />
       {voiceAvailable && (
         <RoundIconButton aria-label="Answer by voice instead" onClick={onVoice} disabled={disabled}>
@@ -73,7 +73,7 @@ export function TextComposer({
         type="submit"
         aria-label="Send answer"
         disabled={!canSend}
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-black transition-[filter,opacity] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-40"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-primary-foreground transition-[filter,opacity] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-40"
       >
         <ArrowUp className="size-5" strokeWidth={2} />
       </button>

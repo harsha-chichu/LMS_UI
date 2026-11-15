@@ -7,7 +7,7 @@ export function ScoreRing({ score, size = 128 }: { score: number; size?: number 
   return (
     <div className="relative" style={{ width: size, height: size }} role="img" aria-label={`score ${score} out of 100`}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1d1d1d" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -22,7 +22,7 @@ export function ScoreRing({ score, size = 128 }: { score: number; size?: number 
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[38px] leading-none font-medium tabular-nums">{score}</span>
-        <span className="mt-1.5 text-[12px] text-white/70">out of 100</span>
+        <span className="mt-1.5 text-[12px] text-foreground/70">out of 100</span>
       </div>
     </div>
   );

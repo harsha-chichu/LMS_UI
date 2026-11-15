@@ -92,8 +92,8 @@ function Swatch({
       onClick={onClick}
       style={style}
       className={cn(
-        "relative size-7 rounded-full transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-        selected && "ring-2 ring-white ring-offset-2 ring-offset-black",
+        "relative size-7 rounded-full transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
       )}
     >
       {children}

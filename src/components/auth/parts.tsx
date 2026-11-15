@@ -28,7 +28,7 @@ export function AuthShell({
         <Link
           href={back}
           aria-label="Back"
-          className="absolute left-0 -ml-2 rounded-full p-2 text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+          className="absolute left-0 -ml-2 rounded-full p-2 text-foreground/80 hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
         >
           <ChevronLeft className="size-5" />
         </Link>
@@ -36,7 +36,7 @@ export function AuthShell({
       </header>
       <main className="flex flex-1 flex-col">
         <h1 className="mt-6 text-[28px] font-semibold tracking-tight md:mt-8 md:text-[30px]">{title}</h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-white/75">{subtitle}</p>
+        <p className="mt-2 text-[15px] leading-relaxed text-foreground/75">{subtitle}</p>
         <div className="mt-8">{children}</div>
       </main>
       {footer && <footer className="mt-12 text-center">{footer}</footer>}
@@ -54,14 +54,14 @@ export function AuthField({
   return (
     <div className={cn("space-y-2.5", className)}>
       <div className="flex items-baseline justify-between">
-        <label htmlFor={id} className="text-[14px] text-white/90">
+        <label htmlFor={id} className="text-[14px] text-foreground/90">
           {label}
         </label>
         {aside}
       </div>
       <input
         id={id}
-        className="h-[52px] w-full rounded-2xl border border-white/15 bg-transparent px-4 text-[16px] text-white outline-none transition-colors placeholder:text-faint focus:border-brand"
+        className="h-[52px] w-full rounded-2xl border border-foreground/15 bg-transparent px-4 text-[16px] text-foreground outline-none transition-colors placeholder:text-faint focus:border-brand"
         {...props}
       />
     </div>
@@ -99,7 +99,7 @@ export function GoogleButton({ next }: { next: string }) {
             setPending(false);
           }
         }}
-        className="h-[52px] w-full rounded-full border border-white/15 text-[16px] font-medium transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-50"
+        className="h-[52px] w-full rounded-full border border-foreground/15 text-[16px] font-medium transition-colors hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-50"
       >
         {pending ? "redirecting to google…" : "continue with google"}
       </button>
@@ -127,7 +127,7 @@ export function PasswordChecklist({ password }: { password: string }) {
       {PASSWORD_RULES.map((rule) => {
         const ok = rule.test(password);
         return (
-          <li key={rule.label} className={cn("flex items-center gap-1.5", ok ? "text-white/90" : "text-subtle")}>
+          <li key={rule.label} className={cn("flex items-center gap-1.5", ok ? "text-foreground/90" : "text-subtle")}>
             <Check className={cn("size-3.5 shrink-0", ok ? "text-brand" : "opacity-30")} strokeWidth={2} />
             {rule.label}
           </li>

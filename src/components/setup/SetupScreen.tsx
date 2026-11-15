@@ -35,7 +35,7 @@ export function SetupScreen() {
         <h1 className="text-[26px] font-semibold tracking-tight md:text-[28px]">
           let&apos;s practice{user ? `, ${user.name}` : ""}
         </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-white/70">
+        <p className="mt-2 text-[15px] leading-relaxed text-foreground/70">
           answer out loud, get follow-ups when you need them, and a score out of 100 at the end.
         </p>
       </div>
@@ -74,11 +74,11 @@ function SetupForm({ initial }: { initial: Preferences }) {
           >
             <SelectTrigger
               aria-label="domain"
-              className="h-auto gap-3 border-0 bg-transparent p-0 text-[17px] text-white/85 hover:text-white dark:bg-transparent dark:hover:bg-transparent [&_svg]:text-white/70"
+              className="h-auto gap-3 border-0 bg-transparent p-0 text-[17px] text-foreground/85 hover:text-foreground dark:bg-transparent dark:hover:bg-transparent [&_svg]:text-foreground/70"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="min-w-48 border border-line bg-[#141414]" alignItemWithTrigger={false} align="end">
+            <SelectContent className="min-w-48 border border-line bg-popover" alignItemWithTrigger={false} align="end">
               {DOMAINS.map((d) => (
                 <SelectItem key={d.value} value={d.value} className="py-2 text-[15px]">
                   {d.label}
@@ -97,7 +97,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
             <button
               type="button"
               onClick={() => set({ topics: [] })}
-              className="text-[14px] text-subtle transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+              className="text-[14px] text-subtle transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
             >
               clear
             </button>
@@ -141,7 +141,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
             aria-label="answer by voice"
             disabled={!speechSupported}
             onClick={() => set({ mode: mode === "voice" ? "text" : "voice" })}
-            className="-mr-2 rounded-full p-2 text-brand transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-brand disabled:text-subtle"
+            className="-mr-2 rounded-full p-2 text-brand transition-colors hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-brand disabled:text-subtle"
           >
             {mode === "voice" ? <Mic className="size-6" strokeWidth={1.75} /> : <Keyboard className="size-6" strokeWidth={1.75} />}
           </button>
@@ -151,7 +151,7 @@ function SetupForm({ initial }: { initial: Preferences }) {
       </div>
 
       {/* Pinned so the main action stays on screen on phones; rows fade out underneath. */}
-      <div className="sticky bottom-0 z-10 mt-auto bg-black pt-6 pb-[max(16px,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-black before:to-transparent md:pt-10 md:pb-8">
+      <div className="sticky bottom-0 z-10 mt-auto bg-background pt-6 pb-[max(16px,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent md:pt-10 md:pb-8">
         {error && (
           <p role="alert" className="mb-4 text-center text-[14px] text-brand">
             {error}

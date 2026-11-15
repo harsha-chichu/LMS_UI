@@ -7,7 +7,7 @@ import { type ByDifficulty, SOLVED_SCORE } from "@/lib/mastery";
 import type { Difficulty } from "@/types";
 
 const COLOR: Record<Difficulty, string> = {
-  easy: "color-mix(in oklch, var(--brand) 55%, white)",
+  easy: "color-mix(in oklch, var(--brand) 55%, var(--foreground))",
   medium: "var(--brand)",
   hard: "var(--brand-deep)",
 };
@@ -51,7 +51,7 @@ export function SolvedRing({
     <div>
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-[13px] text-subtle">solved</h2>
-        <div className="-mr-1.5 flex items-center gap-0.5 text-[13px] text-white/85">
+        <div className="-mr-1.5 flex items-center gap-0.5 text-[13px] text-foreground/85">
           {SOLVED_SCORE}/10 = solved
           <SolvedInfo />
         </div>
@@ -67,7 +67,7 @@ export function SolvedRing({
                   cy={size / 2}
                   r={r}
                   fill="none"
-                  stroke="#1d1d1d"
+                  stroke="var(--track)"
                   strokeWidth={stroke}
                   strokeDasharray={`${a.length} ${c}`}
                   strokeDashoffset={-a.start}
@@ -90,7 +90,7 @@ export function SolvedRing({
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-[30px] leading-none font-medium tabular-nums">{solvedTotal}</span>
-            <span className="mt-1 text-[11px] text-white/70">{totals ? `of ${bankTotal}` : "solved"}</span>
+            <span className="mt-1 text-[11px] text-foreground/70">{totals ? `of ${bankTotal}` : "solved"}</span>
           </div>
         </div>
 
@@ -101,13 +101,13 @@ export function SolvedRing({
                 <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: COLOR[a.d] }} />
                 {a.d}
               </dt>
-              <dd className="h-[3px] overflow-hidden rounded-full bg-white/10" aria-hidden>
+              <dd className="h-[3px] overflow-hidden rounded-full bg-foreground/10" aria-hidden>
                 <span
                   className="block h-full rounded-full transition-[width] duration-700"
                   style={{ width: `${Math.round(a.fraction * 100)}%`, background: COLOR[a.d] }}
                 />
               </dd>
-              <dd className="text-[13px] text-white/80 tabular-nums">
+              <dd className="text-[13px] text-foreground/80 tabular-nums">
                 {solved[a.d]}
                 {totals && <span className="text-subtle"> / {totals[a.d]}</span>}
               </dd>
@@ -125,14 +125,14 @@ function SolvedInfo() {
     <Popover.Root>
       <Popover.Trigger
         aria-label="How solving works"
-        className="inline-flex size-7 items-center justify-center rounded-full text-subtle transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-brand data-[popup-open]:text-white"
+        className="inline-flex size-7 items-center justify-center rounded-full text-subtle transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand data-[popup-open]:text-foreground"
       >
         <Info className="size-4" strokeWidth={1.75} />
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
-          <Popover.Popup className="max-w-[270px] origin-(--transform-origin) rounded-xl border border-line bg-popover p-4 text-[13px] leading-relaxed text-white/85 shadow-lg outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
-            <Popover.Title className="text-[14px] font-medium text-white">how solving works</Popover.Title>
+          <Popover.Popup className="max-w-[270px] origin-(--transform-origin) rounded-xl border border-line bg-popover p-4 text-[13px] leading-relaxed text-foreground/85 shadow-lg outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+            <Popover.Title className="text-[14px] font-medium text-foreground">how solving works</Popover.Title>
             <ul className="mt-2 space-y-1.5">
               <li>a question counts as solved once you score {SOLVED_SCORE}/10 or more on it.</li>
               <li>your best score counts — a lower retry doesn&apos;t undo it.</li>

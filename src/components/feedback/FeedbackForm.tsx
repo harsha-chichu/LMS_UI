@@ -60,7 +60,7 @@ export function FeedbackForm({
 
   if (sent) {
     return (
-      <div className={cn("rounded-2xl border border-line bg-white/[0.03] p-5", className)} role="status">
+      <div className={cn("rounded-2xl border border-line bg-foreground/[0.03] p-5", className)} role="status">
         <p className="text-[16px] font-medium">thanks — your feedback was sent.</p>
         <p className="mt-1.5 text-[14px] leading-relaxed text-subtle">it helps shape what we improve next.</p>
       </div>
@@ -74,7 +74,7 @@ export function FeedbackForm({
 
   return (
     <form
-      className={cn("rounded-2xl border border-line bg-white/[0.03] p-5", className)}
+      className={cn("rounded-2xl border border-line bg-foreground/[0.03] p-5", className)}
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -114,8 +114,8 @@ export function FeedbackForm({
                 className={cn(
                   "h-10 rounded-xl border text-[14px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand",
                   rating === value
-                    ? "border-brand bg-brand/15 text-white"
-                    : "border-line bg-surface-2 text-subtle hover:text-white",
+                    ? "border-brand bg-brand/15 text-foreground"
+                    : "border-line bg-surface-2 text-subtle hover:text-foreground",
                 )}
               >
                 {value}
@@ -139,7 +139,7 @@ export function FeedbackForm({
         />
       </label>
 
-      <label className="mt-4 flex items-start gap-3 text-[14px] leading-relaxed text-white/80">
+      <label className="mt-4 flex items-start gap-3 text-[14px] leading-relaxed text-foreground/80">
         <input
           type="checkbox"
           checked={followUpConsent}
@@ -158,7 +158,7 @@ export function FeedbackForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-5 h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-black transition-[filter,opacity] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
+        className="mt-5 h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-primary-foreground transition-[filter,opacity] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
       >
         {pending ? "sending…" : "send feedback"}
       </button>
