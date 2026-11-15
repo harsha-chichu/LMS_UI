@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Check, Lightbulb } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Lightbulb, TrendingUp } from "lucide-react";
 import { useParams } from "next/navigation";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
@@ -171,12 +171,24 @@ export function ReportBody({
       {!friend && (
         <div className="border-t border-line pt-7">
           <NextSteps sessionId={sessionId} />
-          <nav className="mt-5 flex justify-center text-[13px] text-foreground/70">
-            <Link href="/profile" className="hover:text-foreground">
-              view progress
-            </Link>
-          </nav>
-          <FeedbackForm sessionId={sessionId} reportContext className="mt-8" />
+          <Link
+            href="/profile"
+            className="group mt-3 flex items-center gap-3 rounded-2xl border border-line bg-foreground/[0.03] px-5 py-4 transition-colors hover:bg-foreground/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand/15 text-brand">
+              <TrendingUp className="size-[18px]" strokeWidth={2} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-medium">view your progress</span>
+              <span className="block text-[13px] text-subtle">your scores across sessions</span>
+            </span>
+            <ArrowRight
+              className="size-[18px] shrink-0 text-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+              strokeWidth={1.8}
+              aria-hidden
+            />
+          </Link>
+          <FeedbackForm sessionId={sessionId} reportContext collapsible className="mt-3" />
         </div>
       )}
     </AppColumn>
