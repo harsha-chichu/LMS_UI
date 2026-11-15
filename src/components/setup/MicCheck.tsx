@@ -2,7 +2,7 @@
 
 import { Mic, Play, RotateCcw, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { matchesPhrase, micIsExclusive, useMicTest, type MicStatus } from "@/hooks/useMicTest";
+import { matchesPhrase, recordInsteadOfRecognize, useMicTest, type MicStatus } from "@/hooks/useMicTest";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ const TEST_LIMIT_MS = 10_000;
 const BARS = 12;
 
 type Phase = "idle" | "testing" | "done";
-type Result = "ok" | "mismatch" | "no-words" | "silent" | "speech-error";
+type Result = "ok" | "recorded" | "mismatch" | "no-words" | "silent" | "speech-error";
 
 const MIC_ERROR: Partial<Record<MicStatus, string>> = {
   blocked: "microphone access was blocked — allow it in your browser settings, then try again.",
@@ -24,11 +24,11 @@ const btn =
 
 /** Pre-session check: level meter, say-the-phrase recognition test, and playback. */
 export function MicCheck() {
-  // On Android the speech service needs the mic to itself, so we don't open it
-  // too: the meter follows recognition results and there's no playback.
-  const [exclusive] = useState(micIsExclusive);
-  const mic = useMicTest({ capture: !exclusive });
+  const mic = useMicTest();
   const speech = useSpeechRecognition();
+  // Android: recording and live recognition can't share the mic, so the check
+  // is level + playback only (answers are transcribed server-side there).
+  const [recordOnly] = useState(recordInsteadOfRecognize);
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<Result | null>(null);
   const [heardText, setHeardText] = useState("");
@@ -46,7 +46,11 @@ export function MicCheck() {
     await stopMic();
     setHeardText(text);
     setResult(
-      matchesPhrase(text, PHRASE)
+      recordOnly
+        ? micHeard
+          ? "recorded"
+          : "silent"
+        : matchesPhrase(text, PHRASE)
         ? "ok"
         : speechError
           ? "speech-error"
@@ -57,7 +61,7 @@ export function MicCheck() {
               : "silent",
     );
     setPhase("done");
-  }, [stopSpeech, stopMic, speechError, micHeard]);
+  }, [stopSpeech, stopMic, speechError, micHeard, recordOnly]);
 
   async function test() {
     audioRef.current?.pause();
@@ -70,13 +74,8 @@ export function MicCheck() {
       if (!finishingRef.current) setPhase("idle");
       return;
     }
-    if (!finishingRef.current) speech.start();
+    if (!finishingRef.current && !recordOnly) speech.start();
   }
-
-  const { pulse } = mic;
-  useEffect(() => {
-    if (exclusive && speech.transcript) pulse();
-  }, [exclusive, speech.transcript, pulse]);
 
   // Done as soon as the phrase comes through, or after the time limit.
   const matched = phase === "testing" && matchesPhrase(speech.transcript, PHRASE);
@@ -120,6 +119,8 @@ export function MicCheck() {
   else if (live && speech.error) status = { text: speech.error, tone: "warn" };
   else if (live && mic.silent)
     status = { text: "we can't hear anything — check the mic isn't muted or try another input.", tone: "warn" };
+  else if (live && recordOnly && mic.heard)
+    status = { text: "mic is picking you up — tap stop when you're done.", tone: "muted" };
   else if (live) status = { text: mic.heard ? "mic is picking you up — keep going…" : "listening…", tone: "muted" };
   else if (phase === "done" && result) status = RESULT_TEXT[result](heardText, speechError);
 
@@ -158,7 +159,7 @@ export function MicCheck() {
             ))}
           </div>
 
-          {live && (
+          {live && !recordOnly && (
             <p className="mt-4 min-h-[1.5em] text-[15px] leading-relaxed text-foreground/85">
               {speech.transcript || <span className="text-subtle">your words will appear here…</span>}
             </p>
@@ -193,6 +194,7 @@ const RESULT_TEXT: Record<
   (heard: string, speechError: string | null) => { text: string; tone: "ok" | "warn" | "muted" }
 > = {
   ok: () => ({ text: "we heard you clearly — you're ready ✓", tone: "ok" }),
+  recorded: () => ({ text: "your mic is working ✓ — play it back to check it sounds clear.", tone: "ok" }),
   mismatch: (heard) => ({
     text: `we heard: “${heard}” — try again a little slower, or closer to the mic.`,
     tone: "warn",

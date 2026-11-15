@@ -9,6 +9,7 @@ import { formatClock } from "@/lib/dates";
 export function ListeningView({
   prompt,
   transcript,
+  recordOnly = false,
   startedAt,
   error,
   notice,
@@ -18,6 +19,8 @@ export function ListeningView({
 }: {
   prompt: string;
   transcript: string;
+  /** No live transcript: audio is transcribed after it's sent. */
+  recordOnly?: boolean;
   startedAt: number;
   error: string | null;
   notice: string | null;
@@ -51,7 +54,7 @@ export function ListeningView({
     >
       <div className="mx-auto flex w-full max-w-[520px] flex-1 flex-col px-5 pt-6 pb-8 md:px-0">
         <p className="text-center text-[14px] text-subtle tabular-nums">
-          {error ? "stopped" : "listening"} · {formatClock(elapsed)}
+          {error ? "stopped" : recordOnly ? "recording" : "listening"} · {formatClock(elapsed)}
         </p>
         <p className="mx-auto mt-4 max-w-[440px] text-center text-[14px] leading-relaxed text-foreground/75 md:text-[15px]">
           {prompt}
@@ -83,6 +86,8 @@ export function ListeningView({
               {transcript}
               <span aria-hidden className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[3px] bg-brand animate-caret" />
             </p>
+          ) : recordOnly ? (
+            <p className="text-[17px] text-subtle">start speaking — tap ✓ when you&apos;re done and we&apos;ll send it.</p>
           ) : (
             <p className="text-[17px] text-subtle">start speaking — your words will appear here.</p>
           )}
@@ -111,7 +116,7 @@ export function ListeningView({
             <button
               type="button"
               onClick={onSubmit}
-              aria-label="Review answer"
+              aria-label={recordOnly ? "Send answer" : "Review answer"}
               className="inline-flex size-[60px] items-center justify-center rounded-full bg-brand text-primary-foreground hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               <Check className="size-6" strokeWidth={2} />

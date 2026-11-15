@@ -15,7 +15,7 @@ import {
   QuestionText,
   SessionHeader,
 } from "@/components/session/parts";
-import { micIsExclusive } from "@/hooks/useMicTest";
+import { recordInsteadOfRecognize } from "@/hooks/useMicTest";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useSessionMachine } from "@/hooks/useSessionMachine";
 import { useSpeechRecognition, useSpeechSupported } from "@/hooks/useSpeechRecognition";
@@ -67,9 +67,9 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   const [state, dispatch] = useSessionMachine(row, defaultInput);
   const speech = useSpeechRecognition();
   const recorder = useRecorder();
-  // Android's speech service can't share the mic with our recorder; there the
-  // answer goes without audio (transcript only).
-  const [record] = useState(() => !micIsExclusive());
+  // Android: record audio only (no live transcript) and let the eval agent
+  // transcribe it; the browser's recognizer can't share the mic there.
+  const [recordOnly] = useState(recordInsteadOfRecognize);
   const speechSupported = useSpeechSupported();
   const [notice, setNotice] = useState<string | null>(null);
   // A spoken answer waiting for the user to review its transcript before it's sent.
@@ -98,7 +98,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
 
   const submit = useCallback(
     async (text: string, mode: AnswerMode, durationSec: number, audio: Blob | null) => {
-      dispatch({ type: "submitting", text: text || null });
+      dispatch({ type: "submitting", text: text || (audio ? "🎙️ spoken answer" : null) });
       try {
         const updated = await sendAnswer(row.id, {
           index: state.index,
@@ -109,8 +109,10 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
           audio,
         });
         dispatch({ type: "synced", result: updated });
+        return true;
       } catch (err) {
         dispatch({ type: "failed", error: errorText(err), draft: text || undefined });
+        return false;
       }
     },
     [dispatch, row.id, state.index, state.target],
@@ -131,13 +133,24 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   const startListening = useCallback(() => {
     setNotice(null);
     setRecording(null);
+    if (recordOnly) {
+      dispatch({ type: "listen", at: Date.now() });
+      void recorder.start().then((ok) => {
+        if (ok === false) {
+          dispatch({ type: "setInput", input: "text" });
+          setNotice(null);
+          dispatch({ type: "setError", error: "couldn't open the microphone — allow it in your browser, or type instead." });
+        }
+      });
+      return;
+    }
     if (!speech.start()) {
       dispatch({ type: "setInput", input: "text" });
       return;
     }
-    if (record) void recorder.start();
+    void recorder.start();
     dispatch({ type: "listen", at: Date.now() });
-  }, [dispatch, record, recorder, speech]);
+  }, [dispatch, recordOnly, recorder, speech]);
 
   const cancelListening = useCallback(() => {
     speech.stop();
@@ -146,12 +159,28 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   }, [dispatch, recorder, speech]);
 
   const submitVoice = useCallback(async () => {
+    if (recordOnly) {
+      const audio = await recorder.stop();
+      if (!audio) {
+        setNotice("didn't catch anything — try again, or tap ✕ and type instead.");
+        void recorder.start();
+        return;
+      }
+      const durationSec = state.listenStartedAt ? Math.max(1, Math.round((Date.now() - state.listenStartedAt) / 1000)) : 0;
+      // No live transcript here: send the recording and let the agent transcribe it.
+      if (!(await submit("", "voice", durationSec, audio))) {
+        // Keep the recording so a typed answer can still go with it.
+        setRecording({ audio, durationSec, heard: false, index: state.index, target: state.target });
+        dispatch({ type: "setInput", input: "text" });
+      }
+      return;
+    }
     const text = speech.stop();
     const audio = await recorder.stop();
     if (!text && !audio) {
       setNotice("didn't catch anything — try again, or tap ✕ and type instead.");
       speech.start();
-      if (record) void recorder.start();
+      void recorder.start();
       return;
     }
     const durationSec = state.listenStartedAt ? Math.max(1, Math.round((Date.now() - state.listenStartedAt) / 1000)) : 0;
@@ -159,7 +188,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
     // The recording goes along when they send, for the delivery scores.
     setRecording({ audio, durationSec, heard: Boolean(text.trim()), index: state.index, target: state.target });
     dispatch({ type: "setInput", input: "text", draft: text });
-  }, [dispatch, record, recorder, speech, state.index, state.listenStartedAt, state.target]);
+  }, [dispatch, recordOnly, recorder, speech, state.index, state.listenStartedAt, state.target, submit]);
 
   const typeInstead = useCallback(() => {
     const heard = speech.stop();
@@ -334,6 +363,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
         <ListeningView
           prompt={prompt}
           transcript={speech.transcript}
+          recordOnly={recordOnly}
           startedAt={state.listenStartedAt}
           error={speech.error}
           notice={notice}

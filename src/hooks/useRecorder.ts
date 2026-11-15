@@ -17,6 +17,8 @@ export function pickMimeType() {
 export function useRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  // Bumped by stop/cancel so a mic that opens after them is closed again.
+  const runRef = useRef(0);
 
   const release = useCallback(() => {
     const rec = recorderRef.current;
@@ -24,11 +26,17 @@ export function useRecorder() {
     rec?.stream.getTracks().forEach((t) => t.stop());
   }, []);
 
-  const start = useCallback(async () => {
+  /** True once recording; false if the mic couldn't open; null if stopped/cancelled meanwhile. */
+  const start = useCallback(async (): Promise<boolean | null> => {
     const mimeType = pickMimeType();
     if (mimeType === null || !navigator.mediaDevices?.getUserMedia) return false;
+    const run = ++runRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (run !== runRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return null;
+      }
       const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunksRef.current = [];
       rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
@@ -36,7 +44,7 @@ export function useRecorder() {
       recorderRef.current = rec;
       return true;
     } catch {
-      return false;
+      return run === runRef.current ? false : null;
     }
   }, []);
 
@@ -44,6 +52,7 @@ export function useRecorder() {
   const stop = useCallback(
     () =>
       new Promise<Blob | null>((resolve) => {
+        runRef.current++;
         const rec = recorderRef.current;
         if (!rec || rec.state === "inactive") {
           release();
@@ -61,6 +70,7 @@ export function useRecorder() {
   );
 
   const cancel = useCallback(() => {
+    runRef.current++;
     const rec = recorderRef.current;
     if (rec && rec.state !== "inactive") {
       rec.onstop = null;

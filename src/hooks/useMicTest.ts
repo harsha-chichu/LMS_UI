@@ -30,12 +30,12 @@ export function matchesPhrase(heard: string, target: string, ratio = 0.7) {
 }
 
 /**
- * Android Chrome hands speech recognition to the Google app, which needs the
- * microphone to itself: if the page also holds it (getUserMedia), recognition
- * fails with "cannot record now as Chrome is recording". On Android we let
- * recognition have the mic and skip our own capture.
+ * Android Chrome runs speech recognition in the Google app, which needs the
+ * microphone to itself: while the page also records (getUserMedia) it fails
+ * with "cannot record now as Chrome is recording". There we record audio only
+ * and the eval agent transcribes it server-side.
  */
-export function micIsExclusive() {
+export function recordInsteadOfRecognize() {
   return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 }
 
@@ -43,7 +43,7 @@ export function micIsExclusive() {
  * Opens the microphone for a quick pre-session check: a live input level,
  * whether any sound came through, and a recording of the attempt to play back.
  */
-export function useMicTest({ capture = true }: { capture?: boolean } = {}) {
+export function useMicTest() {
   const [status, setStatus] = useState<MicStatus>("idle");
   const [level, setLevel] = useState(0);
   const [heard, setHeard] = useState(false);
@@ -58,9 +58,6 @@ export function useMicTest({ capture = true }: { capture?: boolean } = {}) {
   const urlRef = useRef<string | null>(null);
   // Bumped by stop/unmount so a permission prompt answered late doesn't reopen the mic.
   const runRef = useRef(0);
-  // Without capture, the meter is driven by pulse() calls (e.g. speech results).
-  const pulseRef = useRef(0);
-  const lastSoundRef = useRef(0);
 
   const setUrl = useCallback((url: string | null) => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -78,63 +75,11 @@ export function useMicTest({ capture = true }: { capture?: boolean } = {}) {
     setLevel(0);
   }, []);
 
-  /** Runs the level meter and silence detection off `sample()` (RMS, 0–1). */
-  const monitor = useCallback((sample: () => number) => {
-    lastSoundRef.current = performance.now();
-    let lastUpdate = 0;
-    let smoothed = 0;
-    let wasSilent = false;
-    let anySound = false;
-
-    const tick = (now: number) => {
-      const rms = sample();
-      smoothed = Math.max(rms, smoothed * 0.85);
-
-      if (rms > SOUND_THRESHOLD) {
-        lastSoundRef.current = now;
-        if (!anySound) {
-          anySound = true;
-          setHeard(true);
-        }
-      }
-      const isSilent = now - lastSoundRef.current > SILENT_AFTER_MS;
-      if (isSilent !== wasSilent) {
-        wasSilent = isSilent;
-        setSilent(isSilent);
-      }
-      if (now - lastUpdate > LEVEL_UPDATE_MS) {
-        lastUpdate = now;
-        // Speech sits around 0.02–0.2 RMS; scale so normal talking fills most of the meter.
-        setLevel(Math.min(1, smoothed * 6));
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }, []);
-
-  /** Without capture: signal that sound came through (e.g. a new speech result). */
-  const pulse = useCallback(() => {
-    pulseRef.current = 0.08 + Math.random() * 0.08;
-  }, []);
-
   const start = useCallback(async () => {
     release();
     setUrl(null);
     setHeard(false);
     setSilent(false);
-
-    if (!capture) {
-      runRef.current++;
-      pulseRef.current = 0;
-      monitor(() => {
-        const v = pulseRef.current;
-        pulseRef.current *= 0.93;
-        return v;
-      });
-      setStatus("live");
-      return true;
-    }
-
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("error");
       return false;
@@ -171,15 +116,43 @@ export function useMicTest({ capture = true }: { capture?: boolean } = {}) {
     analyser.fftSize = 1024;
     ctx.createMediaStreamSource(stream).connect(analyser);
     const data = new Uint8Array(analyser.fftSize);
-    monitor(() => {
+    const startedAt = performance.now();
+    let lastSoundAt = startedAt;
+    let lastUpdate = 0;
+    let smoothed = 0;
+    let wasSilent = false;
+    let anySound = false;
+
+    const tick = (now: number) => {
       analyser.getByteTimeDomainData(data);
       let sum = 0;
       for (const v of data) {
         const x = (v - 128) / 128;
         sum += x * x;
       }
-      return Math.sqrt(sum / data.length);
-    });
+      const rms = Math.sqrt(sum / data.length);
+      smoothed = Math.max(rms, smoothed * 0.85);
+
+      if (rms > SOUND_THRESHOLD) {
+        lastSoundAt = now;
+        if (!anySound) {
+          anySound = true;
+          setHeard(true);
+        }
+      }
+      const isSilent = now - lastSoundAt > SILENT_AFTER_MS;
+      if (isSilent !== wasSilent) {
+        wasSilent = isSilent;
+        setSilent(isSilent);
+      }
+      if (now - lastUpdate > LEVEL_UPDATE_MS) {
+        lastUpdate = now;
+        // Speech sits around 0.02–0.2 RMS; scale so normal talking fills most of the meter.
+        setLevel(Math.min(1, smoothed * 6));
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
 
     // Record the attempt so the user can hear themselves back.
     const mimeType = pickMimeType();
@@ -197,7 +170,7 @@ export function useMicTest({ capture = true }: { capture?: boolean } = {}) {
 
     setStatus("live");
     return true;
-  }, [capture, monitor, release, setUrl]);
+  }, [release, setUrl]);
 
   /** Releases the mic; resolves once the recording (if any) is ready to play. */
   const stop = useCallback(
@@ -238,5 +211,5 @@ export function useMicTest({ capture = true }: { capture?: boolean } = {}) {
     [release],
   );
 
-  return { status, level, heard, silent, recordingUrl, start, stop, pulse };
+  return { status, level, heard, silent, recordingUrl, start, stop };
 }
