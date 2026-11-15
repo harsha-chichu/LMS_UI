@@ -15,6 +15,7 @@ import {
   QuestionText,
   SessionHeader,
 } from "@/components/session/parts";
+import { micIsExclusive } from "@/hooks/useMicTest";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useSessionMachine } from "@/hooks/useSessionMachine";
 import { useSpeechRecognition, useSpeechSupported } from "@/hooks/useSpeechRecognition";
@@ -66,6 +67,9 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
   const [state, dispatch] = useSessionMachine(row, defaultInput);
   const speech = useSpeechRecognition();
   const recorder = useRecorder();
+  // Android's speech service can't share the mic with our recorder; there the
+  // answer goes without audio (transcript only).
+  const [record] = useState(() => !micIsExclusive());
   const speechSupported = useSpeechSupported();
   const [notice, setNotice] = useState<string | null>(null);
   // A spoken answer waiting for the user to review its transcript before it's sent.
@@ -131,9 +135,9 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
       dispatch({ type: "setInput", input: "text" });
       return;
     }
-    void recorder.start();
+    if (record) void recorder.start();
     dispatch({ type: "listen", at: Date.now() });
-  }, [dispatch, recorder, speech]);
+  }, [dispatch, record, recorder, speech]);
 
   const cancelListening = useCallback(() => {
     speech.stop();
@@ -147,7 +151,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
     if (!text && !audio) {
       setNotice("didn't catch anything — try again, or tap ✕ and type instead.");
       speech.start();
-      void recorder.start();
+      if (record) void recorder.start();
       return;
     }
     const durationSec = state.listenStartedAt ? Math.max(1, Math.round((Date.now() - state.listenStartedAt) / 1000)) : 0;
@@ -155,7 +159,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
     // The recording goes along when they send, for the delivery scores.
     setRecording({ audio, durationSec, heard: Boolean(text.trim()), index: state.index, target: state.target });
     dispatch({ type: "setInput", input: "text", draft: text });
-  }, [dispatch, recorder, speech, state.index, state.listenStartedAt, state.target]);
+  }, [dispatch, record, recorder, speech, state.index, state.listenStartedAt, state.target]);
 
   const typeInstead = useCallback(() => {
     const heard = speech.stop();

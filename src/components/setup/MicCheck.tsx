@@ -2,7 +2,7 @@
 
 import { Mic, Play, RotateCcw, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { matchesPhrase, useMicTest, type MicStatus } from "@/hooks/useMicTest";
+import { matchesPhrase, micIsExclusive, useMicTest, type MicStatus } from "@/hooks/useMicTest";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +24,10 @@ const btn =
 
 /** Pre-session check: level meter, say-the-phrase recognition test, and playback. */
 export function MicCheck() {
-  const mic = useMicTest();
+  // On Android the speech service needs the mic to itself, so we don't open it
+  // too: the meter follows recognition results and there's no playback.
+  const [exclusive] = useState(micIsExclusive);
+  const mic = useMicTest({ capture: !exclusive });
   const speech = useSpeechRecognition();
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<Result | null>(null);
@@ -69,6 +72,11 @@ export function MicCheck() {
     }
     if (!finishingRef.current) speech.start();
   }
+
+  const { pulse } = mic;
+  useEffect(() => {
+    if (exclusive && speech.transcript) pulse();
+  }, [exclusive, speech.transcript, pulse]);
 
   // Done as soon as the phrase comes through, or after the time limit.
   const matched = phase === "testing" && matchesPhrase(speech.transcript, PHRASE);
