@@ -38,10 +38,49 @@ const BASE = process.env.EVAL_AGENT_URL?.replace(/\/$/, "");
  * then we fall back to Claude instead of leaving the user waiting.
  */
 const INTERACTIVE_TIMEOUT_MS = 45_000;
+
+/** One short LLM call; if the agent is slow, Claude is the better use of the wait. */
+const SUMMARY_TIMEOUT_MS = 30_000;
 const TOKEN = process.env.EVAL_AGENT_TOKEN;
 
 export function agentEnabled() {
   return Boolean(BASE && TOKEN);
+}
+
+export interface AgentSummary {
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  clarity: { level: number; label: string };
+  confidence: { level: number; label: string };
+}
+
+export interface SummaryRequest {
+  domain: string;
+  difficulty: Difficulty;
+  questions: {
+    question: string;
+    skipped: boolean;
+    answer?: { text: string; mode: string };
+    followups: { question: string; answer?: { text: string; mode: string } }[];
+    score?: number;
+    feedback?: string;
+  }[];
+  metrics: { wpm: number | null; fillers_total: number; fillers_per_min: number | null; hedges: number };
+}
+
+/** End-of-session summary from the agent. Throws on failure so the caller can fall back to Claude. */
+export async function summarize(input: SummaryRequest): Promise<AgentSummary> {
+  if (!BASE || !TOKEN) throw new Error("eval agent not configured");
+  const res = await fetch(`${BASE}/summaries`, {
+    method: "POST",
+    headers: { "x-agent-token": TOKEN, "content-type": "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+    signal: AbortSignal.timeout(SUMMARY_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`eval agent /summaries → ${res.status} ${await res.text().catch(() => "")}`);
+  return (await res.json()) as AgentSummary;
 }
 
 async function call(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<AgentRun> {
