@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const MAX_WEAK = 4;
 
-/** Topics the user keeps scoring low on, per domain and difficulty. Sessions focus on these. */
+/** Topics the user keeps scoring low on: one card per domain, with a switch for its levels. Sessions focus on these. */
 export function WeakAreas() {
   const { data: topics } = useTopicMastery();
   const { data: attempts } = useAttempts();
@@ -22,6 +22,7 @@ export function WeakAreas() {
   const { practise, start, pending, error } = useStartSession();
   const [starting, setStarting] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [level, setLevel] = useState<Partial<Record<Domain, Difficulty>>>({});
   if (!topics?.length) return null;
 
   const mode = speechSupported ? (profile?.preferences.mode ?? "voice") : "text";
@@ -40,14 +41,26 @@ export function WeakAreas() {
       return next;
     });
 
-  const groups = new Map<string, TopicMastery[]>();
+  // One card per domain; its levels sit behind a small switch instead of each
+  // level repeating the same block.
+  const byDomain = new Map<Domain, Map<Difficulty, TopicMastery[]>>();
   for (const t of topics) {
-    const key = `${t.domain}|${t.difficulty}`;
-    groups.set(key, [...(groups.get(key) ?? []), t]);
+    const levels = byDomain.get(t.domain) ?? new Map<Difficulty, TopicMastery[]>();
+    levels.set(t.difficulty, [...(levels.get(t.difficulty) ?? []), t]);
+    byDomain.set(t.domain, levels);
   }
-  const order = (key: string) => {
-    const [domain, difficulty] = key.split("|");
-    return DOMAINS.findIndex((d) => d.value === domain) * 10 + DIFFICULTIES.indexOf(difficulty as never);
+  const domains = [...byDomain.keys()].sort(
+    (a, b) => DOMAINS.findIndex((d) => d.value === a) - DOMAINS.findIndex((d) => d.value === b),
+  );
+
+  /** The level shown for a domain: the one picked, else the one practised most recently. */
+  const levelFor = (domain: Domain, levels: Map<Difficulty, TopicMastery[]>): Difficulty => {
+    const picked = level[domain];
+    if (picked && levels.has(picked)) return picked;
+    let latest: TopicMastery | undefined;
+    for (const list of levels.values())
+      for (const t of list) if (!latest || t.lastPracticed > latest.lastPracticed) latest = t;
+    return latest!.difficulty;
   };
 
   return (
@@ -58,105 +71,140 @@ export function WeakAreas() {
         {ADAPTIVE.masteryScore}/10. tap one to practise it.
       </p>
       <ul className="mt-2">
-        {[...groups.entries()]
-          .sort(([a], [b]) => order(a) - order(b))
-          .map(([key, list]) => {
-            const { domain, difficulty } = list[0];
-            const unsolved = unsolvedQuestionIds(attempts ?? [], domain as Domain, difficulty as Difficulty).length;
-            const weak = list.filter((t) => !t.mastered).sort((a, b) => a.recentAverage - b.recentAverage);
-            const mastered = list.filter((t) => t.mastered);
-            return (
-              <li key={key} className="border-b border-line py-4 last:border-b-0">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[15px]">
-                    {domainShort(domain)} · {difficulty}
-                  </p>
-                  {unsolved > 0 && (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => {
-                        setStarting(key);
-                        practise(domain as Domain, difficulty as Difficulty, mode);
-                      }}
-                      className="h-8 shrink-0 rounded-full border border-brand/60 px-3.5 text-[13px] text-foreground transition-colors hover:bg-brand/10 disabled:opacity-50"
-                    >
-                      {pending && starting === key
-                        ? "preparing…"
-                        : `practise ${Math.min(unsolved, PRACTICE_COUNT)} unsolved`}
-                    </button>
-                  )}
-                </div>
-                {error && starting?.startsWith(key) && (
-                  <p role="alert" className="mt-1 text-[13px] text-brand">
-                    {error}
-                  </p>
+        {domains.map((domain) => {
+          const levels = byDomain.get(domain)!;
+          const difficulty = levelFor(domain, levels);
+          const list = levels.get(difficulty)!;
+          const key = `${domain}|${difficulty}`;
+          const available = DIFFICULTIES.filter((d) => levels.has(d));
+          const unsolved = unsolvedQuestionIds(attempts ?? [], domain, difficulty).length;
+          const weak = list.filter((t) => !t.mastered).sort((a, b) => a.recentAverage - b.recentAverage);
+          const mastered = list.filter((t) => t.mastered);
+          return (
+            <li key={domain} className="border-b border-line py-4 last:border-b-0">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[15px] font-medium">{domainShort(domain)}</p>
+                {unsolved > 0 && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setStarting(key);
+                      practise(domain, difficulty, mode);
+                    }}
+                    className="h-8 shrink-0 rounded-full border border-brand/60 px-3.5 text-[13px] text-foreground transition-colors hover:bg-brand/10 disabled:opacity-50"
+                  >
+                    {pending && starting === key ? "preparing…" : `practise ${Math.min(unsolved, PRACTICE_COUNT)} unsolved`}
+                  </button>
                 )}
-                {weak.length > 0 ? (
-                  <ul className="mt-1.5 -mx-2">
-                    {(expanded.has(key) ? weak : weak.slice(0, MAX_WEAK)).map((t) => {
-                      const rowKey = `${key}|${t.topic}`;
-                      return (
-                        <li key={t.topic}>
-                          <button
-                            type="button"
-                            disabled={pending}
-                            onClick={() => practiseTopic(t)}
-                            aria-label={`practise ${t.topic}`}
-                            className="group flex w-full items-center justify-between gap-4 rounded-lg px-2 py-1.5 text-left text-[14px] transition-colors hover:bg-foreground/[0.04] disabled:opacity-60"
-                          >
-                            <span className="truncate text-foreground/80 group-hover:text-foreground">{t.topic}</span>
-                            <span className="flex shrink-0 items-center gap-2">
-                              <span
-                                className={cn(
-                                  "tabular-nums",
-                                  t.answered === 0 ? "text-subtle" : t.recentAverage < 5 ? "text-foreground/90" : "text-subtle",
-                                )}
-                              >
-                                {pending && starting === rowKey
-                                  ? "preparing…"
-                                  : t.answered === 0
-                                    ? "skipped"
-                                    : `${t.recentAverage.toFixed(1)}/10`}
-                              </span>
-                              <ChevronRight className="size-4 text-subtle group-hover:text-foreground" strokeWidth={1.75} />
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                    {weak.length > MAX_WEAK && (
-                      <li>
+              </div>
+
+              {available.length > 1 ? (
+                <div role="tablist" aria-label={`${domainShort(domain)} level`} className="mt-2.5 flex flex-wrap gap-1.5">
+                  {available.map((d) => {
+                    const selected = d === difficulty;
+                    const weakCount = levels.get(d)!.filter((t) => !t.mastered).length;
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        onClick={() => setLevel((prev) => ({ ...prev, [domain]: d }))}
+                        className={cn(
+                          "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-brand",
+                          selected
+                            ? "border-brand/60 bg-brand/15 text-foreground"
+                            : "border-line text-subtle hover:text-foreground",
+                        )}
+                      >
+                        {d}
+                        <span
+                          aria-label={`${weakCount} weak`}
+                          className={cn("tabular-nums", weakCount === 0 ? "text-subtle" : selected ? "text-brand" : "")}
+                        >
+                          {weakCount === 0 ? <Check className="size-3" strokeWidth={2.25} /> : weakCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-0.5 text-[13px] text-subtle">{difficulty}</p>
+              )}
+
+              {error && starting?.startsWith(key) && (
+                <p role="alert" className="mt-1 text-[13px] text-brand">
+                  {error}
+                </p>
+              )}
+              {weak.length > 0 ? (
+                <ul className="mt-2 -mx-2">
+                  {(expanded.has(key) ? weak : weak.slice(0, MAX_WEAK)).map((t) => {
+                    const rowKey = `${key}|${t.topic}`;
+                    return (
+                      <li key={t.topic}>
                         <button
                           type="button"
-                          onClick={() => toggle(key)}
-                          className="px-2 pt-1 text-[13px] text-brand hover:brightness-110"
+                          disabled={pending}
+                          onClick={() => practiseTopic(t)}
+                          aria-label={`practise ${t.topic}`}
+                          className="group flex w-full items-center justify-between gap-4 rounded-lg px-2 py-1.5 text-left text-[14px] transition-colors hover:bg-foreground/[0.04] disabled:opacity-60"
                         >
-                          {expanded.has(key) ? "show less" : `+${weak.length - MAX_WEAK} more`}
+                          <span className="truncate text-foreground/80 group-hover:text-foreground">{t.topic}</span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span
+                              className={cn(
+                                "tabular-nums",
+                                t.answered === 0 ? "text-subtle" : t.recentAverage < 5 ? "text-foreground/90" : "text-subtle",
+                              )}
+                            >
+                              {pending && starting === rowKey
+                                ? "preparing…"
+                                : t.answered === 0
+                                  ? "skipped"
+                                  : `${t.recentAverage.toFixed(1)}/10`}
+                            </span>
+                            <ChevronRight className="size-4 text-subtle group-hover:text-foreground" strokeWidth={1.75} />
+                          </span>
                         </button>
                       </li>
-                    )}
-                  </ul>
-                ) : (
-                  <p className="mt-1.5 text-[14px] text-foreground/70">no weak topics here — try a harder level.</p>
-                )}
-                {mastered.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <span className="mr-0.5 text-[12px] text-subtle">mastered</span>
-                    {mastered.map((t) => (
-                      <span
-                        key={t.topic}
-                        className="inline-flex items-center gap-1 rounded-full border border-brand/50 px-2.5 py-0.5 text-[12px] text-foreground/85"
+                    );
+                  })}
+                  {weak.length > MAX_WEAK && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => toggle(key)}
+                        className="px-2 pt-1 text-[13px] text-brand hover:brightness-110"
                       >
-                        <Check className="size-3 text-brand" strokeWidth={2.25} />
-                        {t.topic}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </li>
-            );
-          })}
+                        {expanded.has(key) ? "show less" : `+${weak.length - MAX_WEAK} more`}
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p className="mt-2 text-[14px] text-foreground/70">
+                  {difficulty === "hard" ? "no weak topics at this level — nice work." : "no weak topics here — try a harder level."}
+                </p>
+              )}
+              {mastered.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="mr-0.5 text-[12px] text-subtle">mastered</span>
+                  {mastered.map((t) => (
+                    <span
+                      key={t.topic}
+                      className="inline-flex items-center gap-1 rounded-full border border-brand/50 px-2.5 py-0.5 text-[12px] text-foreground/85"
+                    >
+                      <Check className="size-3 text-brand" strokeWidth={2.25} />
+                      {t.topic}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </Section>
   );
