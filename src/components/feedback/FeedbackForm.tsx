@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, MessageSquare, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Category = "idea" | "problem" | "praise" | "other";
@@ -18,13 +19,18 @@ const RATING_LABELS = ["not useful", "a little useful", "okay", "useful", "very 
 export function FeedbackForm({
   sessionId,
   reportContext = false,
+  collapsible = false,
   className,
 }: {
   sessionId?: string;
   /** Uses report-focused copy and sensible initial values after a completed session. */
   reportContext?: boolean;
+  /** Starts as a one-line "feedback" button; the form opens on click. */
+  collapsible?: boolean;
   className?: string;
 }) {
+  const [open, setOpen] = useState(!collapsible);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
   const [category, setCategory] = useState<Category>("idea");
   const [rating, setRating] = useState(reportContext ? 3 : 4);
   const [message, setMessage] = useState("");
@@ -58,12 +64,40 @@ export function FeedbackForm({
     }
   }
 
+  // Opened by the user: take them straight to the box they need to fill in.
+  useEffect(() => {
+    if (collapsible && open) messageRef.current?.focus({ preventScroll: true });
+  }, [collapsible, open]);
+
   if (sent) {
     return (
       <div className={cn("rounded-2xl border border-line bg-foreground/[0.03] p-5", className)} role="status">
         <p className="text-[16px] font-medium">thanks — your feedback was sent.</p>
         <p className="mt-1.5 text-[14px] leading-relaxed text-subtle">it helps shape what we improve next.</p>
       </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        aria-expanded={false}
+        onClick={() => setOpen(true)}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-2xl border border-line bg-foreground/[0.03] px-5 py-4 text-left transition-colors hover:bg-foreground/[0.06] focus-visible:outline-2 focus-visible:outline-brand",
+          className,
+        )}
+      >
+        <MessageSquare className="size-[18px] shrink-0 text-subtle" strokeWidth={1.8} aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-medium">feedback</span>
+          <span className="block text-[13px] text-subtle">
+            {reportContext ? "was this session useful? tell us" : "tell us what’s working or missing"}
+          </span>
+        </span>
+        <ChevronDown className="size-[18px] shrink-0 text-subtle" strokeWidth={1.8} aria-hidden />
+      </button>
     );
   }
 
@@ -80,7 +114,22 @@ export function FeedbackForm({
         void submit();
       }}
     >
-      <h2 className="text-[17px] font-medium">{title}</h2>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-[17px] font-medium">{title}</h2>
+        {collapsible && (
+          <button
+            type="button"
+            aria-label="close feedback"
+            onClick={() => {
+              setOpen(false);
+              setError(null);
+            }}
+            className="-m-2 rounded-full p-2 text-subtle transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <X className="size-[18px]" strokeWidth={1.8} />
+          </button>
+        )}
+      </div>
       <p className="mt-1.5 text-[14px] leading-relaxed text-subtle">{description}</p>
 
       <label className="mt-5 block">
@@ -129,6 +178,7 @@ export function FeedbackForm({
       <label className="mt-5 block">
         <span className="text-[13px] text-subtle">tell us what happened or what you’d improve</span>
         <textarea
+          ref={messageRef}
           required
           rows={4}
           maxLength={5000}
