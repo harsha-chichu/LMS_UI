@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Check, Lightbulb, TrendingUp } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
-import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
+import { AppColumn, BackHeader, Card, CardHead, ProfileColumn, SectionLabel } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
 import { SaveButton } from "@/components/common/SaveButton";
 import { FeedbackForm } from "@/components/feedback/FeedbackForm";
+import { Arc, Bar, Tag } from "@/components/profile/parts";
 import { QuestionDetail } from "@/components/report/QuestionDetail";
 import { ScoreRing } from "@/components/report/ScoreRing";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ANSWER_WEIGHT, COMMUNICATION_WEIGHT, domainShort } from "@/lib/constants";
 import { useStartSession } from "@/hooks/useStartSession";
 import { useSessionRow } from "@/lib/data";
+import { SOLVED_SCORE } from "@/lib/mastery";
 import { cn } from "@/lib/utils";
 import type { MetricReading, Report } from "@/types";
 
@@ -56,129 +58,142 @@ export function ReportBody({
   const { config, communication: comm } = report;
 
   return (
-    <AppColumn className="pb-12">
+    <ProfileColumn className="pb-12">
       <BackHeader
         title={friend ? `${friend.name}’s report` : "session report"}
         href={friend ? `/friends/${friend.id}` : backHref}
       />
 
-      <div className="flex flex-col items-center pt-4 pb-7">
-        <ScoreRing score={report.total} />
-        {report.previous && <PreviousTotal previous={report.previous} total={report.total} friend={Boolean(friend)} />}
-        <p className="mt-5 text-[13px] text-foreground/70">
-          {domainShort(config.domain)} · {config.difficulty} · {report.questions.length} questions
-        </p>
-        {config.topics?.length ? (
-          <p className="mt-1 text-center text-[13px] text-subtle">{config.topics.join(" · ")}</p>
-        ) : null}
+      {/* Two columns on desktop. On phones the cards flow as one list: score, summary, strengths, improvements, communication. */}
+      <div className="grid gap-3.5 pt-2 lg:grid-cols-2 lg:items-start">
+        <div className="contents lg:grid lg:min-w-0 lg:gap-3.5">
+          <Card className="order-1 lg:order-none">
+            <div className="flex items-center gap-5 sm:gap-7">
+              <ScoreRing score={report.total} />
+              <dl className="min-w-0 flex-1 space-y-3.5">
+                <ScoreLine label="answers" note={`${ANSWER_WEIGHT * 100}% of the total`} value={report.answersScore} />
+                <ScoreLine
+                  label="communication"
+                  note={`${COMMUNICATION_WEIGHT * 100}% of the total`}
+                  value={report.communicationScore}
+                />
+              </dl>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line pt-4 text-[13px] text-subtle">
+              <Tag>{domainShort(config.domain)}</Tag>
+              <Tag>{config.difficulty}</Tag>
+              <span className="tabular-nums">
+                {report.questions.length} question{report.questions.length === 1 ? "" : "s"} · {report.followUps} follow-up
+                {report.followUps === 1 ? "" : "s"}
+              </span>
+            </div>
+            {config.topics?.length ? <p className="mt-2 text-[13px] text-subtle">{config.topics.join(" · ")}</p> : null}
+            {report.previous && (
+              <PreviousTotal previous={report.previous} total={report.total} friend={Boolean(friend)} />
+            )}
+          </Card>
+
+          <Card className="order-5 lg:order-none">
+            <CardHead label="communication">
+              <span className="tabular-nums">
+                {report.communicationScore === null ? "not rated" : `${report.communicationScore}/100`}
+              </span>
+            </CardHead>
+            <dl className="mt-4 space-y-3.5">
+              <MetricRow name="clarity" reading={comm.clarity} />
+              <MetricRow name="pace" reading={comm.pace} />
+              <MetricRow name="confidence" reading={comm.confidence} />
+              <MetricRow name="filler words" reading={comm.fillers} />
+            </dl>
+            {comm.tip && (
+              <p className="mt-4 flex gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-3 text-[14px] leading-relaxed text-foreground/85">
+                <Lightbulb className="mt-0.5 size-4 shrink-0 text-brand" strokeWidth={1.75} />
+                {comm.tip}
+              </p>
+            )}
+          </Card>
+        </div>
+
+        <div className="contents lg:grid lg:min-w-0 lg:gap-3.5">
+          <Card className="order-2 lg:order-none">
+            <CardHead label="summary" />
+            <p className="mt-3 text-[15px] leading-relaxed text-foreground/90">{report.summary}</p>
+          </Card>
+
+          {report.strengths.length > 0 && (
+            <Card className="order-3 lg:order-none">
+              <CardHead label="strengths" />
+              <ul className="mt-3 space-y-3">
+                {report.strengths.map((s) => (
+                  <li key={s} className="flex gap-3 text-[15px] leading-snug">
+                    <Check className="mt-0.5 size-4 shrink-0 text-brand" strokeWidth={2} />
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {report.improvements.length > 0 && (
+            <Card className="order-4 lg:order-none">
+              <CardHead label="areas to improve" />
+              <ul className="mt-3 space-y-3">
+                {report.improvements.map((s) => (
+                  <li key={s} className="flex gap-3 text-[15px] leading-snug">
+                    <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-subtle" strokeWidth={1.75} />
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
       </div>
 
-      <StatRow
-        items={[
-          { value: report.answersScore, label: `answers · ${ANSWER_WEIGHT * 100}%` },
-          { value: report.communicationScore ?? "–", label: `communication · ${COMMUNICATION_WEIGHT * 100}%` },
-          { value: report.followUps, label: "follow-ups" },
-        ]}
-      />
-
-      <Section className="border-t-0">
-        <SectionLabel>summary</SectionLabel>
-        <p className="mt-3 text-[15px] leading-relaxed text-foreground/90">{report.summary}</p>
-      </Section>
-
-      {report.strengths.length > 0 && (
-        <Section>
-          <SectionLabel>strengths</SectionLabel>
-          <ul className="mt-3 space-y-2.5">
-            {report.strengths.map((s) => (
-              <li key={s} className="flex gap-3 text-[15px]">
-                <Check className="mt-1 size-4 shrink-0 text-brand" strokeWidth={2} />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      {report.improvements.length > 0 && (
-        <Section>
-          <SectionLabel>areas to improve</SectionLabel>
-          <ul className="mt-3 space-y-2.5">
-            {report.improvements.map((s) => (
-              <li key={s} className="flex gap-3 text-[15px]">
-                <ArrowUpRight className="mt-1 size-4 shrink-0 text-subtle" strokeWidth={1.75} />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      <Section>
-        <div className="flex items-center justify-between">
-          <SectionLabel>communication</SectionLabel>
-          <span className="text-[14px] tabular-nums">{report.communicationScore === null ? "not rated" : `${report.communicationScore}/100`}</span>
-        </div>
-        <dl className="mt-3 space-y-3">
-          <MetricRow name="clarity" reading={comm.clarity} />
-          <MetricRow name="pace" reading={comm.pace} />
-          <MetricRow name="confidence" reading={comm.confidence} />
-          <MetricRow name="filler words" reading={comm.fillers} />
-        </dl>
-        {comm.tip && (
-          <p className="mt-4 flex gap-2 text-[13px] text-foreground/70">
-            <Lightbulb className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} />
-            {comm.tip}
-          </p>
-        )}
-      </Section>
-
-      <Section>
-        <SectionLabel>per question</SectionLabel>
-        <Accordion defaultValue={[0]} className="mt-2">
-          {report.questions.map((q, i) => (
-            <AccordionItem key={i} value={i} className="border-line">
-              <AccordionTrigger className="gap-3 rounded-none py-4 hover:no-underline [&_[data-slot=accordion-trigger-icon]]:mt-1 [&_[data-slot=accordion-trigger-icon]]:size-4">
-                <span className="w-6 shrink-0 pt-px text-[13px] text-subtle tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                <span className="flex-1 text-[15px] leading-snug font-normal">{q.text}</span>
-                <span className="flex shrink-0 flex-col items-end pl-2">
-                  <span
-                    className={cn(
-                      "text-[15px] font-medium tabular-nums",
-                      q.score !== null && q.score >= 8 ? "text-brand" : "text-foreground",
-                    )}
-                  >
-                    {q.score === null ? "–" : q.score.toFixed(1)}
-                  </span>
+      <div className="mt-8 mb-2.5 flex items-baseline justify-between gap-3 px-1">
+        <SectionLabel>question by question</SectionLabel>
+        <p className="text-[13px] text-subtle">scores out of 10</p>
+      </div>
+      <Accordion defaultValue={[0]} className="gap-3">
+        {report.questions.map((q, i) => (
+          <AccordionItem key={i} value={i} className="rounded-[18px] border-0 bg-surface not-last:border-b-0">
+            <AccordionTrigger className="items-center gap-3.5 rounded-[18px] px-4 py-4 hover:no-underline sm:px-5 [&_[data-slot=accordion-trigger-icon]]:ml-0 [&_[data-slot=accordion-trigger-icon]]:size-4">
+              <Arc
+                size={46}
+                stroke={3.5}
+                fraction={(q.score ?? 0) / 10}
+                color={q.score !== null && q.score >= SOLVED_SCORE ? "var(--brand)" : "var(--brand-deep)"}
+              >
+                <span className="text-[14px] font-medium tabular-nums">{q.score === null ? "–" : q.score.toFixed(1)}</span>
+              </Arc>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] leading-snug font-normal text-pretty">{q.text}</span>
+                <span className="mt-1 block text-[12px] font-normal text-subtle tabular-nums">
+                  question {i + 1} · {q.score === null ? (q.mode ? "not scored" : "skipped") : (q.mode ?? "voice")}
                   <ScoreDelta now={q.score} before={q.previousScore} />
                 </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4 pb-5 pl-9 text-[14px]">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] text-subtle">
-                      {q.score === null ? (q.mode ? "not scored" : "skipped") : `${q.mode ?? "voice"} · ${q.score.toFixed(1)}/10`}
-                      {q.previousScore !== undefined &&
-                        ` · last time ${q.previousScore === null ? "skipped" : `${q.previousScore.toFixed(1)}/10`}`}
-                    </span>
-                    {!friend && (
-                      <SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-my-2 -mr-3" />
-                    )}
-                  </div>
-                  {!friend && <QuestionDetail q={q} />}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </Section>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-5 sm:px-5">
+              {friend ? (
+                <p className="border-t border-line pt-4 text-[14px] text-subtle">answers and feedback stay private.</p>
+              ) : (
+                <QuestionDetail
+                  q={q}
+                  save={<SaveButton sessionId={sessionId} index={i} text={q.text} config={config} label className="-mr-2" />}
+                />
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
 
       {!friend && (
-        <div className="border-t border-line pt-7">
+        <div className="mx-auto mt-8 max-w-[520px]">
           <NextSteps sessionId={sessionId} />
           <Link
             href="/profile"
-            className="group mt-3 flex items-center gap-3 rounded-2xl border border-line bg-foreground/[0.03] px-5 py-4 transition-colors hover:bg-foreground/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="group mt-3 flex items-center gap-3 rounded-[18px] bg-surface px-5 py-4 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand/15 text-brand">
               <TrendingUp className="size-[18px]" strokeWidth={2} aria-hidden />
@@ -196,7 +211,23 @@ export function ReportBody({
           <FeedbackForm sessionId={sessionId} reportContext collapsible className="mt-3" />
         </div>
       )}
-    </AppColumn>
+    </ProfileColumn>
+  );
+}
+
+/** One of the two scores behind the total, as a labelled bar out of 100. */
+function ScoreLine({ label, note, value }: { label: string; note: string; value: number | null }) {
+  return (
+    <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1.5">
+      <dt className="min-w-0 text-[14px]">
+        {label}
+        <span className="block text-[12px] text-subtle sm:ml-1.5 sm:inline">{value === null ? "not rated" : note}</span>
+      </dt>
+      <dd className="text-[17px] font-medium tabular-nums">{value ?? "–"}</dd>
+      <dd className="col-span-2" aria-hidden>
+        <Bar fraction={(value ?? 0) / 100} className="h-1.5" />
+      </dd>
+    </div>
   );
 }
 
@@ -223,36 +254,38 @@ function PreviousTotal({
     </>
   );
   return friend ? (
-    <p className="mt-4 text-[14px]">{body}</p>
+    <p className="mt-3 text-[14px]">{body}</p>
   ) : (
-    <Link href={`/report/${previous.sessionId}`} className="mt-4 text-[14px] hover:brightness-125">
+    <Link href={`/report/${previous.sessionId}`} className="mt-3 block text-[14px] hover:brightness-125">
       {body}
     </Link>
   );
 }
 
-/** Change against the last time this question was answered, under its score. */
+/** " · +1.2 vs last time", after a question's meta line. */
 function ScoreDelta({ now, before }: { now: number | null; before: number | null | undefined }) {
   if (before === undefined || now === null) return null;
   const delta = Math.round((now - (before ?? 0)) * 10) / 10;
-  if (delta === 0) return <span className="text-[11px] text-subtle tabular-nums">same</span>;
   return (
-    <span className={cn("text-[11px] tabular-nums", delta > 0 ? "text-brand" : "text-subtle")}>
-      {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
-    </span>
+    <>
+      {" · "}
+      <span className={cn(delta > 0 && "text-brand")}>
+        {delta === 0 ? "same as" : delta > 0 ? `+${delta.toFixed(1)} vs` : `${delta.toFixed(1)} vs`} last time
+      </span>
+    </>
   );
 }
 
 function MetricRow({ name, reading }: { name: string; reading: MetricReading }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_96px] items-center gap-3">
-      <dt className="text-[15px]">{name}</dt>
-      <dd className="flex gap-1" aria-label={`${reading.level} of 5`}>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5">
+      <dt className="text-[14px]">{name}</dt>
+      <dd className="text-[13px] text-foreground/70">{reading.label}</dd>
+      <dd className="col-span-2 grid grid-cols-5 gap-1" aria-label={`${reading.level} of 5`}>
         {Array.from({ length: 5 }, (_, i) => (
-          <span key={i} className={cn("h-[3px] w-3.5 rounded-full", i < reading.level ? "bg-brand" : "bg-foreground/15")} />
+          <span key={i} className={cn("h-1.5 rounded-full", i < reading.level ? "bg-brand" : "bg-track")} />
         ))}
       </dd>
-      <dd className="text-[13px] text-foreground/70">{reading.label}</dd>
     </div>
   );
 }
