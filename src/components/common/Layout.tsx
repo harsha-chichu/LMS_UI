@@ -8,8 +8,15 @@ export function AppColumn({ children, className }: { children: ReactNode; classN
   return <div className={cn("mx-auto w-full max-w-[520px] px-5 md:px-0", className)}>{children}</div>;
 }
 
-/** "‹   title" bar used on the report and profile screens. */
-export function BackHeader({ title, href }: { title: string; href: string }) {
+/** The profile screens' column: the usual 520px, widening on desktop to fit two columns of cards. */
+export function ProfileColumn({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("mx-auto w-full max-w-[520px] px-5 md:px-0 lg:max-w-[960px] lg:px-5", className)}>{children}</div>
+  );
+}
+
+/** "‹   title" bar used on the report and profile screens, with optional icons on the right. */
+export function BackHeader({ title, href, actions }: { title: string; href: string; actions?: ReactNode }) {
   return (
     <header className="relative flex h-14 items-center justify-center">
       <Link
@@ -20,6 +27,7 @@ export function BackHeader({ title, href }: { title: string; href: string }) {
         <ChevronLeft className="size-5" />
       </Link>
       <h1 className="text-[14px] text-subtle">{title}</h1>
+      {actions && <div className="absolute right-0 -mr-2 flex items-center">{actions}</div>}
     </header>
   );
 }
@@ -30,6 +38,21 @@ export function SectionLabel({ children, className }: { children: ReactNode; cla
 
 export function Section({ children, className }: { children: ReactNode; className?: string }) {
   return <section className={cn("border-t border-line py-6", className)}>{children}</section>;
+}
+
+/** A block lifted onto its own surface. */
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("rounded-[18px] bg-surface p-5", className)}>{children}</section>;
+}
+
+/** A card's label on the left and a short note on the right. */
+export function CardHead({ label, children }: { label: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <SectionLabel>{label}</SectionLabel>
+      {children != null && <div className="text-right text-[13px] text-foreground/85">{children}</div>}
+    </div>
+  );
 }
 
 /** Three numbers split by thin vertical rules. */

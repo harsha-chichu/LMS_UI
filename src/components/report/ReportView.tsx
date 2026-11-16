@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Check, Lightbulb, TrendingUp } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { AppColumn, BackHeader, Section, SectionLabel, StatRow } from "@/components/common/Layout";
 import { PillButton, PillLink } from "@/components/common/PillButton";
 import { SaveButton } from "@/components/common/SaveButton";
@@ -19,6 +19,9 @@ import type { MetricReading, Report } from "@/types";
 export function ReportView() {
   const { id } = useParams<{ id: string }>();
   const { data: row, error, isLoading } = useSessionRow(id);
+  // Opened from a profile tab: go back to that tab rather than the dashboard.
+  const from = useSearchParams().get("from");
+  const backHref = from === "sessions" || from === "saved" ? `/profile?tab=${from}` : "/profile";
   if (isLoading) return null;
 
   if (error || !row?.report) {
@@ -30,12 +33,12 @@ export function ReportView() {
         {row?.status === "in_progress" ? (
           <PillLink href={`/session/${row.id}`}>continue the session</PillLink>
         ) : (
-          <PillLink href="/profile">see your sessions</PillLink>
+          <PillLink href="/profile?tab=sessions">see your sessions</PillLink>
         )}
       </AppColumn>
     );
   }
-  return <ReportBody report={row.report} sessionId={row.id} />;
+  return <ReportBody report={row.report} sessionId={row.id} backHref={backHref} />;
 }
 
 /** A finished report. Friends get a read-only view without save or practice actions. */
@@ -43,10 +46,12 @@ export function ReportBody({
   report,
   sessionId,
   friend,
+  backHref = "/profile",
 }: {
   report: Report;
   sessionId: string;
   friend?: { id: string; name: string };
+  backHref?: string;
 }) {
   const { config, communication: comm } = report;
 
@@ -54,7 +59,7 @@ export function ReportBody({
     <AppColumn className="pb-12">
       <BackHeader
         title={friend ? `${friend.name}’s report` : "session report"}
-        href={friend ? `/friends/${friend.id}` : "/profile"}
+        href={friend ? `/friends/${friend.id}` : backHref}
       />
 
       <div className="flex flex-col items-center pt-4 pb-7">
