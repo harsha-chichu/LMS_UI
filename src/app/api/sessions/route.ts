@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { practiceRequestSchema, sessionConfigSchema } from "@/lib/llm/schemas";
+import { practiceRequestSchema, savedTestRequestSchema, sessionConfigSchema } from "@/lib/llm/schemas";
 import { type Attempt, PRACTICE_COUNT, unsolvedQuestionIds } from "@/lib/mastery";
 import { pickQuestions } from "@/lib/questions/pick";
 import { errorResponse } from "@/lib/sessions/store";
@@ -14,7 +14,8 @@ const DAILY_SESSION_LIMIT = 30;
 /**
  * Start a session: pick questions from the bank and store an in-progress row.
  * `{ retryOf: id }` instead of a config reuses a finished session's settings and questions;
- * `{ practice: { domain, difficulty }, mode }` builds one from the user's unsolved questions.
+ * `{ practice: { domain, difficulty }, mode }` builds one from the user's unsolved questions;
+ * `{ saved: [ids], mode }` builds one from up to 10 saved questions at the same level.
  */
 export async function POST(request: Request) {
   const timer = serverTimer();
@@ -109,6 +110,68 @@ export async function POST(request: Request) {
         count: questions.length,
         mode,
         practice: true,
+      };
+      const { data, error } = await getSupabaseAdmin()
+        .from("lms_sessions")
+        .insert({ user_id: user.id, config, questions, results: [] })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return Response.json({ id: data.id, config, questions });
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+
+  // "test on saved": questions the user picked from their saved list, all at one level.
+  if (body && typeof body === "object" && "saved" in body) {
+    const request = savedTestRequestSchema.safeParse(body);
+    if (!request.success) return Response.json({ error: "invalid request" }, { status: 400 });
+    const { saved: ids, mode } = request.data;
+    try {
+      const [allowed, { data: rows, error: savedError }] = await Promise.all([
+        underLimit(),
+        supabase
+          .from("lms_saved_questions")
+          .select("id, session_id, question_index, text, domain, difficulty")
+          .eq("user_id", user.id)
+          .in("id", ids),
+      ]);
+      if (savedError) throw savedError;
+      if (!allowed) return limitReached();
+
+      const byId = new Map((rows ?? []).map((r) => [r.id as string, r]));
+      const picked = ids.map((id) => byId.get(id)).filter((r) => r !== undefined);
+      if (!picked.length) return Response.json({ error: "those saved questions are gone." }, { status: 404 });
+      const { domain, difficulty } = picked[0];
+      if (picked.some((r) => r.domain !== domain || r.difficulty !== difficulty)) {
+        return Response.json({ error: "pick questions from one domain and difficulty." }, { status: 400 });
+      }
+
+      // The source sessions keep each question's bank id, so attempts still count towards progress.
+      const { data: sources, error: sourcesError } = await supabase
+        .from("lms_sessions")
+        .select("id, questions")
+        .eq("user_id", user.id)
+        .in("id", [...new Set(picked.map((r) => r.session_id as string))]);
+      if (sourcesError) throw sourcesError;
+      const sourceQuestions = new Map((sources ?? []).map((s) => [s.id as string, (s.questions ?? []) as Question[]]));
+
+      const questions: Question[] = picked.map((r, i) => {
+        const source = sourceQuestions.get(r.session_id as string)?.[r.question_index as number];
+        return {
+          id: `q${i + 1}`,
+          text: r.text as string,
+          ...(source?.bankId ? { bankId: source.bankId } : {}),
+          topics: source?.topics ?? [],
+        };
+      });
+      const config: SessionConfig = {
+        domain: domain as SessionConfig["domain"],
+        difficulty: difficulty as SessionConfig["difficulty"],
+        count: questions.length,
+        mode,
+        saved: true,
       };
       const { data, error } = await getSupabaseAdmin()
         .from("lms_sessions")

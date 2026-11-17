@@ -20,6 +20,8 @@ export const TOPICS = {
 } as const satisfies Record<Domain, readonly string[]>;
 
 export const MAX_TOPICS = 5;
+/** Most questions a test from the saved list can have. */
+export const MAX_SAVED_TEST = 10;
 export const MAX_TOPIC_LENGTH = 40;
 
 /** "rag, evaluation +1" — short enough for a one-line summary. */

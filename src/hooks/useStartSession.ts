@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createSession, practiceSession, retrySession } from "@/lib/data";
+import { createSession, practiceSession, retrySession, savedTestSession } from "@/lib/data";
 import type { AnswerMode, Difficulty, Domain, SessionConfig } from "@/types";
 
 /**
@@ -23,6 +23,8 @@ export function useStartSession() {
   /** Questions the user tried at this level but hasn't solved yet. */
   const practise = (domain: Domain, difficulty: Difficulty, mode: AnswerMode) =>
     open(() => practiceSession(domain, difficulty, mode));
+  /** A test on questions picked from the saved list. */
+  const fromSaved = (savedIds: string[], mode: AnswerMode) => open(() => savedTestSession(savedIds, mode));
 
   async function open(create: () => Promise<string>) {
     setCreating(true);
@@ -40,5 +42,5 @@ export function useStartSession() {
     }
   }
 
-  return { start, retry, practise, pending: creating || navigating, error };
+  return { start, retry, practise, fromSaved, pending: creating || navigating, error };
 }

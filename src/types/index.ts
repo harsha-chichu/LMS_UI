@@ -21,6 +21,8 @@ export interface SessionConfig {
   retryOf?: string;
   /** Set on a session built from the user's unsolved questions. */
   practice?: boolean;
+  /** Set on a test built from questions the user picked from their saved list. */
+  saved?: boolean;
 }
 
 export interface Question {
