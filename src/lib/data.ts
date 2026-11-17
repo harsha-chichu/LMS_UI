@@ -337,6 +337,15 @@ export async function practiceSession(domain: Domain, difficulty: Difficulty, mo
   return seedSession(id, config, questions);
 }
 
+/** Creates a test from saved questions (lms_saved_questions ids, in order); returns its id. */
+export async function savedTestSession(savedIds: string[], mode: AnswerMode) {
+  const { id, config, questions } = await api<{ id: string; config: SessionConfig; questions: Question[] }>(
+    "/api/sessions",
+    json({ saved: savedIds, mode }),
+  );
+  return seedSession(id, config, questions);
+}
+
 async function seedSession(id: string, config: SessionConfig, questions: Question[]) {
   // Hand the new row to the session screen so it can show the first question
   // without fetching it again. (The saved preferences catch up in the background.)

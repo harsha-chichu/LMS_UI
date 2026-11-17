@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_TOPIC_LENGTH, MAX_TOPICS } from "@/lib/constants";
+import { MAX_SAVED_TEST, MAX_TOPIC_LENGTH, MAX_TOPICS } from "@/lib/constants";
 
 const domain = z.enum(["ai-ml", "data-science", "backend", "frontend", "system-design", "behavioral"]);
 const difficulty = z.enum(["easy", "medium", "hard"]);
@@ -21,6 +21,16 @@ export const sessionConfigSchema = z.object({
 /** POST /api/sessions body for a "practise unsolved" session. */
 export const practiceRequestSchema = z.object({
   practice: z.object({ domain, difficulty }),
+  mode,
+});
+
+/** POST /api/sessions body for a test on saved questions (lms_saved_questions ids, in order). */
+export const savedTestRequestSchema = z.object({
+  saved: z
+    .array(z.string().uuid())
+    .min(1)
+    .max(MAX_SAVED_TEST)
+    .transform((ids) => [...new Set(ids)]),
   mode,
 });
 
