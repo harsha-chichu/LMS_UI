@@ -4,12 +4,10 @@ import { practiceRequestSchema, savedTestRequestSchema, sessionConfigSchema } fr
 import { type Attempt, PRACTICE_COUNT, unsolvedQuestionIds } from "@/lib/mastery";
 import { pickQuestions } from "@/lib/questions/pick";
 import { errorResponse } from "@/lib/sessions/store";
+import { LIMITS, rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { serverTimer } from "@/lib/timing";
 import type { Preferences, Question, SessionConfig } from "@/types";
-
-// Keeps one account from burning through the LLM budget.
-const DAILY_SESSION_LIMIT = 30;
 
 /**
  * Start a session: pick questions from the bank and store an in-progress row.
@@ -25,35 +23,27 @@ export async function POST(request: Request) {
   const { supabase, user } = auth;
 
   const body: unknown = await request.json().catch(() => null);
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const underLimit = () =>
-    Promise.resolve(
-      supabase.from("lms_sessions").select("id", { count: "exact", head: true }).gte("created_at", since),
-    ).then(({ count }) => (count ?? 0) < DAILY_SESSION_LIMIT);
+  // Taken atomically in Postgres, so parallel requests can't all slip under the limit.
+  // The retry / practice / saved paths take it only once the request is known to be valid.
+  const underLimit = () => takeRateLimit(user.id, "session");
   const limitReached = () =>
-    Response.json(
-      { error: `you've reached today's limit of ${DAILY_SESSION_LIMIT} sessions — come back tomorrow.` },
-      { status: 429 },
-    );
+    rateLimited(`you've reached today's limit of ${LIMITS.session.limit} sessions — come back tomorrow.`);
 
   // "try again": same settings and questions as one of the user's finished sessions.
   const retryOf = (body as { retryOf?: unknown } | null)?.retryOf;
   if (typeof retryOf === "string") {
     try {
       // Friends can read each other's sessions, so filter on the owner too.
-      const [allowed, { data: prev, error: loadError }] = await Promise.all([
-        underLimit(),
-        supabase
-          .from("lms_sessions")
-          .select("config, questions")
-          .eq("id", retryOf)
-          .eq("user_id", user.id)
-          .eq("status", "completed")
-          .maybeSingle(),
-      ]);
+      const { data: prev, error: loadError } = await supabase
+        .from("lms_sessions")
+        .select("config, questions")
+        .eq("id", retryOf)
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .maybeSingle();
       if (loadError) throw loadError;
       if (!prev) return Response.json({ error: "session not found" }, { status: 404 });
-      if (!allowed) return limitReached();
+      if (!(await underLimit())) return limitReached();
 
       // Remember which session this repeats, so its report can show before / after.
       const config: SessionConfig = { ...(prev.config as SessionConfig), retryOf };
@@ -75,18 +65,14 @@ export async function POST(request: Request) {
     if (!practice.success) return Response.json({ error: "invalid request" }, { status: 400 });
     const { practice: level, mode } = practice.data;
     try {
-      const [allowed, { data: attempts, error: attemptsError }] = await Promise.all([
-        underLimit(),
-        supabase
-          .from("lms_question_attempts")
-          .select("question_id, session_id, domain, difficulty, topics, score, skipped, created_at")
-          .eq("user_id", user.id)
-          .eq("domain", level.domain)
-          .eq("difficulty", level.difficulty)
-          .limit(2000),
-      ]);
+      const { data: attempts, error: attemptsError } = await supabase
+        .from("lms_question_attempts")
+        .select("question_id, session_id, domain, difficulty, topics, score, skipped, created_at")
+        .eq("user_id", user.id)
+        .eq("domain", level.domain)
+        .eq("difficulty", level.difficulty)
+        .limit(2000);
       if (attemptsError) throw attemptsError;
-      if (!allowed) return limitReached();
 
       const ids = unsolvedQuestionIds((attempts ?? []) as Attempt[], level.domain, level.difficulty);
       // The bank is server-only, so read it with the service role; skip retired questions.
@@ -99,6 +85,7 @@ export async function POST(request: Request) {
       if (!picked.length) {
         return Response.json({ error: "nothing left to practise here — every question you tried is solved." }, { status: 404 });
       }
+      if (!(await underLimit())) return limitReached();
 
       const questions: Question[] = picked.map((id, i) => {
         const q = byId.get(id)!;
@@ -129,16 +116,12 @@ export async function POST(request: Request) {
     if (!request.success) return Response.json({ error: "invalid request" }, { status: 400 });
     const { saved: ids, mode } = request.data;
     try {
-      const [allowed, { data: rows, error: savedError }] = await Promise.all([
-        underLimit(),
-        supabase
-          .from("lms_saved_questions")
-          .select("id, session_id, question_index, text, domain, difficulty")
-          .eq("user_id", user.id)
-          .in("id", ids),
-      ]);
+      const { data: rows, error: savedError } = await supabase
+        .from("lms_saved_questions")
+        .select("id, session_id, question_index, text, domain, difficulty")
+        .eq("user_id", user.id)
+        .in("id", ids);
       if (savedError) throw savedError;
-      if (!allowed) return limitReached();
 
       const byId = new Map((rows ?? []).map((r) => [r.id as string, r]));
       const picked = ids.map((id) => byId.get(id)).filter((r) => r !== undefined);
@@ -147,6 +130,7 @@ export async function POST(request: Request) {
       if (picked.some((r) => r.domain !== domain || r.difficulty !== difficulty)) {
         return Response.json({ error: "pick questions from one domain and difficulty." }, { status: 400 });
       }
+      if (!(await underLimit())) return limitReached();
 
       // The source sessions keep each question's bank id, so attempts still count towards progress.
       const { data: sources, error: sourcesError } = await supabase

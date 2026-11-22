@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { SessionError, scoreLater, scoresLater, submitAnswer, type Target } from "@/lib/sessions/engine";
+import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { errorResponse, loadSession, saveResult } from "@/lib/sessions/store";
 import type { AnswerMode } from "@/types";
 
@@ -28,6 +29,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     }
     if (audio && audio.size > MAX_AUDIO_BYTES) throw new SessionError("recording is too long", 413);
 
+    if (!(await takeRateLimit(auth.user.id, "answer"))) return rateLimited();
     const row = await loadSession(auth.supabase, id);
     if (!Number.isInteger(index) || index < 0 || index >= row.questions.length) {
       throw new SessionError("invalid question");
@@ -37,12 +39,12 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     await saveResult(auth.user.id, row, index, result);
 
     if (scoresLater(result)) {
-      // Nothing else writes this question once it's answered with no follow-up left,
-      // so saving the scored copy can't clobber newer input. If the session is
-      // already finished, finalize has scored it and the save is refused.
+      // Only replaces the unscored copy just saved (`result`), so it can't clobber
+      // newer input. If the session is already finished, finalize has scored it
+      // and the save is refused.
       after(async () => {
         const scored = await scoreLater(row.config, result);
-        await saveResult(auth.user.id, row, index, scored).catch((err) =>
+        await saveResult(auth.user.id, row, index, scored, result).catch((err) =>
           console.warn("[claude:evaluate] saving background score failed:", err instanceof Error ? err.message : err),
         );
       });

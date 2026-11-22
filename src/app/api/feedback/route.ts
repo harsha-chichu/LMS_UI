@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
+import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const feedbackSchema = z.object({
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "invalid feedback" }, { status: 400 });
 
   try {
+    if (!(await takeRateLimit(auth.user.id, "feedback"))) {
+      return rateLimited("that's a lot of feedback for one day — thank you! try again tomorrow.");
+    }
     const { category, rating, message, followUpConsent, sessionId } = parsed.data;
     const db = getSupabaseAdmin();
 

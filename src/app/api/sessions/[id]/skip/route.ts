@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { SessionError, skip, type Target } from "@/lib/sessions/engine";
+import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { errorResponse, loadSession, saveResult } from "@/lib/sessions/store";
 
 /** Skip a question, or the follow-up currently waiting on it. */
@@ -14,6 +15,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     const target = body?.target;
     if (target !== "main" && target !== "followup") throw new SessionError("invalid request");
 
+    if (!(await takeRateLimit(auth.user.id, "answer"))) return rateLimited();
     const row = await loadSession(auth.supabase, id);
     if (!Number.isInteger(index) || index < 0 || index >= row.questions.length) {
       throw new SessionError("invalid question");
