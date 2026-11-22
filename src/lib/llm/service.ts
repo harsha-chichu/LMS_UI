@@ -36,6 +36,7 @@ export async function generateQuestions(
   const allowed = new Set((topics.length ? topics : TOPICS[domain]).map((t) => t.trim().toLowerCase()));
   const out = await generateStructured({
     schema: questionsOutput,
+    operation: "generate_questions",
     system: INTERVIEWER_SYSTEM,
     prompt: questionsPrompt(domain, difficulty, count, topics, avoid),
     effort: "low",
@@ -57,6 +58,7 @@ export async function evaluateAnswer(input: {
 }): Promise<Evaluation> {
   const out = await generateStructured({
     schema: evaluationOutput,
+    operation: "evaluate",
     system: INTERVIEWER_SYSTEM,
     prompt: evaluatePrompt(input),
     effort: "low",
@@ -91,6 +93,7 @@ export async function decideFollowUp(input: {
   if (input.difficulty === "easy") return null;
   const out = await generateStructured({
     schema: followUpOutput,
+    operation: "follow_up",
     system: INTERVIEWER_SYSTEM,
     prompt: followUpPrompt(input),
     effort: "low",
@@ -107,6 +110,7 @@ export async function writeNarrative(input: {
 }): Promise<ReportNarrative> {
   const out = await generateStructured({
     schema: narrativeOutput,
+    operation: "narrative",
     system: INTERVIEWER_SYSTEM,
     prompt: narrativePrompt(input),
     effort: "medium",

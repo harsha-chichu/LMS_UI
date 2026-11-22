@@ -22,6 +22,16 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const { supabase, user } = auth;
 
+  // Admins can pause new sessions from /admin/system (e.g. during an AI outage).
+  const { data: paused } = await supabase.from("lms_app_settings").select("value").eq("key", "sessions_paused").maybeSingle();
+  const pause = paused?.value as { enabled?: boolean; message?: string } | undefined;
+  if (pause?.enabled) {
+    return Response.json(
+      { error: pause.message?.trim() || "starting new sessions is paused for a moment — please try again soon." },
+      { status: 503 },
+    );
+  }
+
   const body: unknown = await request.json().catch(() => null);
   // Taken atomically in Postgres, so parallel requests can't all slip under the limit.
   // The retry / practice / saved paths take it only once the request is known to be valid.

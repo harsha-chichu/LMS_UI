@@ -1,4 +1,5 @@
 import "server-only";
+import { operationFromPath, recordUsage } from "@/lib/admin/usage";
 import type { AgentCommunication, Difficulty } from "@/types";
 
 /**
@@ -42,6 +43,25 @@ const INTERACTIVE_TIMEOUT_MS = 45_000;
 /** One short LLM call; if the agent is slow, Claude is the better use of the wait. */
 const SUMMARY_TIMEOUT_MS = 30_000;
 const TOKEN = process.env.EVAL_AGENT_TOKEN;
+
+/**
+ * Reachability check for /admin/system. Any HTTP answer counts as reachable;
+ * only network errors and timeouts count as down.
+ */
+export async function pingAgent(): Promise<{ configured: boolean; reachable: boolean; status?: number; ms?: number; error?: string }> {
+  if (!BASE || !TOKEN) return { configured: false, reachable: false };
+  const started = Date.now();
+  try {
+    const res = await fetch(`${BASE}/health`, {
+      headers: { "x-agent-token": TOKEN },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    return { configured: true, reachable: true, status: res.status, ms: Date.now() - started };
+  } catch (err) {
+    return { configured: true, reachable: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 export function agentEnabled() {
   return Boolean(BASE && TOKEN);
@@ -125,11 +145,30 @@ export class AgentError extends Error {
 
 async function call(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<AgentRun> {
   if (!BASE || !TOKEN) throw new AgentError("eval agent not configured", true);
+  const started = Date.now();
+  const operation = `${init.method ?? "GET"} ${operationFromPath(path)}`;
+  try {
+    const run = await send(path, init);
+    recordUsage({ kind: "agent", operation, ok: true, latencyMs: Date.now() - started });
+    return run;
+  } catch (err) {
+    recordUsage({
+      kind: "agent",
+      operation,
+      ok: false,
+      latencyMs: Date.now() - started,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+async function send(path: string, init: RequestInit & { timeoutMs?: number }): Promise<AgentRun> {
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
       ...init,
-      headers: { ...init.headers, "x-agent-token": TOKEN },
+      headers: { ...init.headers, "x-agent-token": TOKEN ?? "" },
       cache: "no-store",
       signal: AbortSignal.timeout(init.timeoutMs ?? 120_000),
     });

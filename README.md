@@ -55,7 +55,32 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 
 **Region:** API routes run in Vercel's Seoul region (`icn1`, set in `vercel.json`), next to the Supabase project (ap-northeast-2). Each answer makes several sequential Supabase calls plus one to the eval agent (Singapore), so a far-away region adds a round trip to each. Move it if the database moves.
 
-**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. 0013 must be applied before this version goes live: the API calls `lms_rate_limit` and `lms_save_result_guarded`.
+**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Apply 0014 before this version goes live: without it the app keeps working, but `/admin` errors and usage events are dropped.
+
+## Admin dashboard (`/admin`)
+
+**Setup (once):**
+1. Run `supabase/migrations/0014_admin.sql` in the Supabase SQL editor *before* deploying this version. The API now records usage events and reads app settings from it.
+2. Set `ADMIN_EMAILS` to a comma-separated list of admin emails, in `.env.local` and in Vercel (Project → Settings → Environment Variables), then redeploy. Those accounts can open `/admin`. Emails live in env only, never in the repo.
+3. Admins can give other users admin access from `/admin/users/[id]` (stored as `lms_profiles.role = 'admin'`). Admins also get an "open admin dashboard" link in settings.
+
+**Pages:**
+
+| Route | What it does |
+|---|---|
+| `/admin` | KPIs (users, daily and monthly actives, sessions, completion rate, average score, AI error rate), daily trends, sessions by domain, weekly retention, things needing attention |
+| `/admin/users` | Search and sort users. Detail page: stats, sessions, feedback, AI usage; suspend (bans the auth user), make/remove admin, reset progress, delete account, export all their data as JSON |
+| `/admin/sessions` | Filter by status (including stuck > 2h), domain and level. Viewer: questions, answers, follow-ups, evaluations, who scored each answer and why scoring failed. Force-abandon stuck sessions |
+| `/admin/questions` | Bank browser with times asked, skip rate and average score; add, edit, retire/restore; coverage per domain and level; review generated questions; CSV export |
+| `/admin/feedback` | Inbox with new / triaged / resolved status, private notes, CSV export |
+| `/admin/ai` | Claude, eval agent and Deepgram calls, failures and latency per operation; estimated Claude cost from token counts (`src/lib/admin/pricing.ts`); agent vs fallback vs not-scored share; score distribution |
+| `/admin/system` | Live checks (database, eval agent, keys present), DB size and table rows, busiest rate-limit buckets; switches to **pause new sessions** and show a **maintenance banner** |
+| `/admin/announcements` | Banners shown at the top of the app, with an optional end time |
+| `/admin/audit` | Every admin action: who, what, when |
+
+**Security:** each admin page and `/api/admin/*` route checks admin access on the server (`src/lib/admin/guard.ts`); non-admins are sent back to the app and get 403 from the APIs. Admin data is read with the service-role key, server-side only, through `lms_admin_*` functions only the service role can call. Users can't change their own `role` or suspension (a trigger rejects it). Every write is logged to `lms_admin_audit`. You can't suspend, demote or delete your own account from the dashboard.
+
+**Usage numbers** start from the deploy that includes migration 0014: each Claude, eval-agent and Deepgram call is recorded in `lms_usage_events` after the response is sent (`src/lib/admin/usage.ts`), and a failed write never affects the user.
 
 ## Screens
 
@@ -73,11 +98,12 @@ Plus `/login`, `/signup`, `/forgot-password`, `/reset-password`. Everything exce
 
 ```
 src/
-├─ app/                  routes; api/sessions/* (create, answers, skip, complete, abandon); auth/callback
+├─ app/                  routes; (admin)/admin/* dashboard; api/sessions/*, api/admin/*; auth/callback
 ├─ proxy.ts              Supabase session refresh + route gating (Next 16's "middleware")
 ├─ components/           auth, landing, setup, session, report, profile, common, ui (shadcn)
 ├─ hooks/                speech recognition, audio recorder, session state machine, timer
 ├─ lib/
+│  ├─ admin/             admin guard, audit log, usage tracking, dashboard queries
 │  ├─ agent/             HTTP client + mapping for the Python eval agent
 │  ├─ sessions/          per-question scoring engine (agent → Claude fallback), persistence
 │  ├─ supabase/          browser + server clients
