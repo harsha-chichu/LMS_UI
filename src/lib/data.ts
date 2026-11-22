@@ -18,6 +18,7 @@ import type {
   QuestionResult,
   Report,
   SavedQuestion,
+  ScoringRubric,
   SessionConfig,
   SessionRow,
   UserSearchResult,
@@ -39,6 +40,7 @@ const KEYS = {
   friend: (id: string) => `friends:profile:${id}`,
   attempts: "attempts",
   bankCounts: "bank:counts",
+  rubric: (domain: Domain, difficulty: Difficulty) => `rubric:${domain}:${difficulty}`,
 };
 
 async function fetchProfile(): Promise<Profile> {
@@ -128,6 +130,18 @@ export function useTopicMastery(): { data: TopicMastery[] | undefined } {
 /** Active questions per domain + difficulty. Needs migration 0008; absent, the ring shows counts only. */
 export const useBankCounts = () =>
   useSWR(KEYS.bankCounts, () => rpc<BankCount[]>("lms_bank_counts"), { ...swrOptions, shouldRetryOnError: false });
+
+/** How a domain is scored at a difficulty, shown before a session. Errors when the agent isn't available. */
+export const useRubric = (domain: Domain, difficulty: Difficulty) =>
+  useSWR(
+    KEYS.rubric(domain, difficulty),
+    async () => {
+      const res = await fetch(`/api/rubrics?${new URLSearchParams({ domain, difficulty })}`);
+      if (!res.ok) throw new Error(`rubric unavailable (${res.status})`);
+      return (await res.json()) as ScoringRubric;
+    },
+    { ...swrOptions, shouldRetryOnError: false, keepPreviousData: true },
+  );
 
 export interface SaveTarget {
   sessionId: string;
