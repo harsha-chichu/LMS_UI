@@ -5,6 +5,7 @@ import { DOMAINS, DIFFICULTIES, domainShort } from "@/lib/constants";
 import { db, emailsFor, isUuid } from "@/lib/admin/data";
 import { fmtDateTime } from "@/lib/admin/format";
 import { requireAdminPage } from "@/lib/admin/guard";
+import { UNSCORED_RESULTS_FILTER } from "@/lib/admin/rescore";
 import { nowMs, pageParam, param } from "@/lib/admin/range";
 import type { QuestionResult, SessionConfig } from "@/types";
 
@@ -38,7 +39,7 @@ async function Sessions({ searchParams }: { searchParams: PageProps<"/admin/sess
   if (status === "stuck") {
     query = query.eq("status", "in_progress").lt("created_at", new Date(nowMs() - STUCK_MS).toISOString());
   } else if (status === "unscored") {
-    query = query.neq("status", "abandoned").contains("results", [{ scoring: { status: "failed" } }]);
+    query = query.neq("status", "abandoned").filter("results", "cs", UNSCORED_RESULTS_FILTER);
   } else if (["in_progress", "completed", "abandoned"].includes(status)) {
     query = query.eq("status", status);
   }

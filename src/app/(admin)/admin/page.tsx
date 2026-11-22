@@ -5,7 +5,9 @@ import { KpiGrid, KpiTile, PageHeader, Panel, RangeTabs, Skeleton, Status, Table
 import { domainShort } from "@/lib/constants";
 import { db, rpc } from "@/lib/admin/data";
 import { fmtNum, fmtPct } from "@/lib/admin/format";
+import { logServerError } from "@/lib/admin/errors";
 import { requireAdminPage } from "@/lib/admin/guard";
+import { UNSCORED_RESULTS_FILTER } from "@/lib/admin/rescore";
 import { nowMs, parseRange } from "@/lib/admin/range";
 import type { Domain } from "@/types";
 
@@ -75,9 +77,13 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/admin">["s
       .select("id", { count: "exact", head: true })
       .eq("status", "completed")
       .gte("created_at", from.toISOString())
-      .contains("results", [{ scoring: { status: "failed" } }]),
+      .filter("results", "cs", UNSCORED_RESULTS_FILTER),
     rpc<number>("lms_admin_new_error_groups", { p_since: new Date(nowMs() - 86_400_000).toISOString() }),
   ]);
+
+  // These two feed "needs attention"; a failure shouldn't break the page, but it shouldn't hide silently either.
+  if (unscored.error) logServerError("admin-page", unscored.error, { route: "/admin", details: { query: "unscored sessions" } });
+  if (openAlerts.error) logServerError("admin-page", openAlerts.error, { route: "/admin", details: { query: "open alerts" } });
 
   const byDomain = new Map<string, { sessions: number; completed: number }>();
   for (const r of domains) {
