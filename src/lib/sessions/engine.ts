@@ -302,6 +302,58 @@ async function writeSummary(input: Parameters<typeof writeNarrative>[0]): Promis
   });
 }
 
+/** How long re-scoring one answer waits for the eval agent before falling back. */
+export const RESCORE_AGENT_TIMEOUT_MS = 90_000;
+
+/**
+ * Scores an already-answered question again (admin "re-score"), the same way a
+ * live session does: the eval agent first, with the recorded answer replayed
+ * (and the recorded follow-up answers, in order, if the agent asks follow-ups;
+ * skipped if there are none), then Claude if the agent fails. Text only: the
+ * original audio isn't kept, so delivery scores already on the answer stay as they are.
+ */
+export async function rescoreAnswer(config: SessionConfig, r: QuestionResult, userId?: string): Promise<QuestionResult> {
+  const next = structuredClone(r);
+  const text = next.answer?.text?.trim();
+  if (!text) return next;
+
+  if (agentEnabled()) {
+    try {
+      const followUpAnswers = next.followUps.map((f) => f.answer?.text?.trim()).filter((t): t is string => Boolean(t));
+      let run = await startEvaluation({
+        question: next.question.text,
+        difficulty: config.difficulty,
+        domain: agentDomain(config.domain),
+        answer: text,
+        user_id: userId,
+      });
+      const deadline = Date.now() + RESCORE_AGENT_TIMEOUT_MS;
+      while (true) {
+        if (run.status === "completed" && run.result) {
+          next.evaluation = toEvaluation(run.result);
+          next.scoring = { engine: "agent", status: "done", threadId: run.thread_id };
+          return next;
+        }
+        if (Date.now() >= deadline) throw new Error(`no result after ${RESCORE_AGENT_TIMEOUT_MS / 1000}s`);
+        if (run.status === "pending_followup") {
+          const reply = followUpAnswers.shift();
+          run = reply ? await answerFollowUp(run.thread_id, { answer: reply, user_id: userId }) : await skipFollowUp(run.thread_id);
+          continue;
+        }
+        await sleep(POLL_INTERVAL_MS);
+        run = await getEvaluation(run.thread_id);
+      }
+    } catch (err) {
+      warn("rescore", err);
+      // claudeScore keeps this so a row still failing says why for both scorers.
+      next.scoring = { engine: "agent", status: "failed", error: errorText(err) };
+    }
+  }
+
+  await claudeScore(config, next, false);
+  return next;
+}
+
 export async function finalize(
   row: SessionRow,
   history?: ReportHistory,
