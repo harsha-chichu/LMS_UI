@@ -1,7 +1,9 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { useRef, useState } from "react";
 import { PasswordChecklist, friendlyAuthError } from "@/components/auth/parts";
 import { AppColumn, BackHeader, Section, SectionLabel } from "@/components/common/Layout";
@@ -58,6 +60,7 @@ export function SettingsView() {
         <AccentPicker profile={profile} />
       </Section>
 
+      <AdminLink />
       <AccountSection profile={profile} />
     </AppColumn>
   );
@@ -164,6 +167,23 @@ function AccountSection({ profile }: { profile: Profile }) {
       >
         log out
       </button>
+    </Section>
+  );
+}
+
+/** Shown only to admins (ADMIN_EMAILS or role = 'admin'). */
+function AdminLink() {
+  const { data } = useSWR<{ admin: boolean }>("/api/admin/me", (url: string) => fetch(url).then((r) => r.json()), {
+    revalidateOnFocus: false,
+  });
+  if (!data?.admin) return null;
+  return (
+    <Section>
+      <SectionLabel>admin</SectionLabel>
+      <Link href="/admin" className="mt-2 flex w-full items-center justify-between py-4 text-left text-[16px] hover:text-foreground/80">
+        open admin dashboard
+        <ChevronRight className="size-4 text-subtle" />
+      </Link>
     </Section>
   );
 }
