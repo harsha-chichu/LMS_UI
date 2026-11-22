@@ -109,17 +109,40 @@ export async function fetchRubric(domain: string, difficulty: Difficulty): Promi
   return (await res.json()) as AgentRubric;
 }
 
+/**
+ * A failed agent call. `final` is true when retrying can't help: the run itself
+ * failed, or the agent doesn't know it (restarted, or the run expired). Timeouts,
+ * network errors and 5xx responses are not final.
+ */
+export class AgentError extends Error {
+  constructor(
+    message: string,
+    public final: boolean,
+  ) {
+    super(message);
+  }
+}
+
 async function call(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<AgentRun> {
-  if (!BASE || !TOKEN) throw new Error("eval agent not configured");
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { ...init.headers, "x-agent-token": TOKEN },
-    cache: "no-store",
-    signal: AbortSignal.timeout(init.timeoutMs ?? 120_000),
-  });
-  if (!res.ok) throw new Error(`eval agent ${path} → ${res.status} ${await res.text().catch(() => "")}`);
+  if (!BASE || !TOKEN) throw new AgentError("eval agent not configured", true);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { ...init.headers, "x-agent-token": TOKEN },
+      cache: "no-store",
+      signal: AbortSignal.timeout(init.timeoutMs ?? 120_000),
+    });
+  } catch (err) {
+    throw new AgentError(`eval agent ${path}: ${err instanceof Error ? err.message : String(err)}`, false);
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    // 4xx won't change on a retry (unknown run, bad token, wrong state); 5xx might.
+    throw new AgentError(`eval agent ${path} → ${res.status} ${detail}`.trim(), res.status < 500);
+  }
   const run = (await res.json()) as AgentRun;
-  if (run.status === "failed") throw new Error(`eval agent run failed: ${run.error ?? "unknown"}`);
+  if (run.status === "failed") throw new AgentError(`eval agent run failed: ${run.error ?? "unknown"}`, true);
   return run;
 }
 

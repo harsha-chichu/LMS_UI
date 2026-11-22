@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  AgentError,
   type AgentRun,
   agentEnabled,
   answerFollowUp,
@@ -38,8 +39,10 @@ function emptyResult(row: SessionRow, index: number): QuestionResult {
   return row.results[index] ?? blank(row.questions[index]);
 }
 
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
 function warn(label: string, err: unknown) {
-  console.warn(`[agent:${label}] falling back to claude:`, err instanceof Error ? err.message : err);
+  console.warn(`[agent:${label}] falling back to claude:`, errorText(err));
 }
 
 /**
@@ -60,11 +63,17 @@ async function claudeScore(config: SessionConfig, r: QuestionResult, allowFollow
     r.scoring = { engine: "claude", status: "done" };
     return r.evaluation;
   } catch (err) {
-    console.warn("[claude:evaluate] scoring failed:", err instanceof Error ? err.message : err);
+    console.warn("[claude:evaluate] scoring failed:", errorText(err));
     // A score Claude already gave the main answer still stands; otherwise it's unscored for now.
     if (!(r.evaluation && r.scoring?.engine === "claude")) {
+      // Keep why the agent didn't score it too, so the row says why it's "not scored".
+      const agentError = r.scoring?.engine === "agent" ? r.scoring.error : undefined;
       r.evaluation = undefined;
-      r.scoring = { engine: "claude", status: "failed" };
+      r.scoring = {
+        engine: "claude",
+        status: "failed",
+        error: [agentError && `agent: ${agentError}`, `claude: ${errorText(err)}`].filter(Boolean).join("; "),
+      };
     }
     return null;
   }
@@ -214,10 +223,21 @@ export async function skip(row: SessionRow, index: number, target: Target): Prom
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * How long finishing a session waits for the agent's background scoring. A voice
+ * answer takes several Gemini calls after the follow-up decision (delivery, plan,
+ * scoring, up to two re-checks), and the last answers start just before the end.
+ * The complete route's maxDuration leaves room for this plus the summary.
+ */
+export const SETTLE_TIMEOUT_MS = 120_000;
+const POLL_INTERVAL_MS = 2000;
+
 /** Wait for background agent scoring, then fall back to Claude for anything left. */
-async function settleScores(row: SessionRow, results: QuestionResult[], timeoutMs = 60_000) {
+async function settleScores(row: SessionRow, results: QuestionResult[], timeoutMs = SETTLE_TIMEOUT_MS) {
   const deadline = Date.now() + timeoutMs;
   let pending = results.filter((r) => !r.skipped && r.answer && r.scoring?.engine === "agent" && r.scoring.status !== "done");
+  // The last error per answer, if polling it hasn't succeeded since.
+  const lastError = new Map<QuestionResult, string>();
 
   while (pending.length && Date.now() < deadline) {
     await Promise.all(
@@ -238,21 +258,33 @@ async function settleScores(row: SessionRow, results: QuestionResult[], timeoutM
             // waiting out the deadline and re-scoring with Claude.
             await skipFollowUp(r.scoring!.threadId!);
           }
+          lastError.delete(r);
         } catch (err) {
+          // A timeout or a 5xx is often a blip (the agent busy with another request):
+          // keep asking until the deadline. Give up now only if retrying can't help.
+          lastError.set(r, errorText(err));
+          if (err instanceof AgentError && !err.final) return;
           warn("poll", err);
-          r.scoring = { ...r.scoring!, status: "failed" };
+          r.scoring = { ...r.scoring!, status: "failed", error: errorText(err) };
         }
       }),
     );
     pending = pending.filter((r) => r.scoring?.status === "pending");
-    if (pending.length) await sleep(2000);
+    if (pending.length) await sleep(Math.min(POLL_INTERVAL_MS, Math.max(0, deadline - Date.now())));
   }
 
-  for (const r of results) {
-    if (!r.skipped && r.answer && (!r.evaluation || r.scoring?.status !== "done")) {
-      await claudeScore(row.config, r, false);
-    }
+  for (const r of pending) {
+    const error = `no result after ${Math.round(timeoutMs / 1000)}s${lastError.has(r) ? ` (last error: ${lastError.get(r)})` : ""}`;
+    warn("poll", error);
+    r.scoring = { ...r.scoring!, status: "failed", error };
   }
+
+  // Side by side: one at a time, a few slow Claude calls could outlast the request.
+  await Promise.all(
+    results
+      .filter((r) => !r.skipped && r.answer && (!r.evaluation || r.scoring?.status !== "done"))
+      .map((r) => claudeScore(row.config, r, false)),
+  );
 }
 
 /** Session summary: the eval agent first, then Claude; a plain one if both fail. */

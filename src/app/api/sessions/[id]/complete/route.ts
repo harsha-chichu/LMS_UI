@@ -4,6 +4,10 @@ import { loadHistory } from "@/lib/sessions/history";
 import { errorResponse, loadSession } from "@/lib/sessions/store";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
+// Waits up to SETTLE_TIMEOUT_MS (2 min) for the agent's scores, then Claude
+// fallbacks and the summary; well under this limit.
+export const maxDuration = 300;
+
 /** Wait for scoring to settle, write the report and close the session. */
 export async function POST(_request: Request, ctx: RouteContext<"/api/sessions/[id]/complete">) {
   const auth = await requireUser();
