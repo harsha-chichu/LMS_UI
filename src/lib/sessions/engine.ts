@@ -9,7 +9,7 @@ import {
   summarize,
 } from "@/lib/agent/client";
 import { agentDomain, toEvaluation, toNarrative, toSummaryRequest } from "@/lib/agent/map";
-import { evaluateAnswer, writeNarrative } from "@/lib/llm/service";
+import { decideFollowUp, evaluateAnswer, writeNarrative } from "@/lib/llm/service";
 import { emptyResult as blank, pendingFollowUp } from "@/lib/sessions/progress";
 import { buildReport, plainNarrative, type ReportHistory, type ReportNarrative } from "@/lib/scoring";
 import { computeSpeechMetrics } from "@/lib/speech-metrics";
@@ -110,12 +110,14 @@ export async function submitAnswer(
   if (target === "main" && (r.answer || r.skipped)) throw new SessionError("question already answered", 409);
   const followUp = pendingFollowUp(r);
   if (target === "followup" && (!r.answer || !followUp)) throw new SessionError("no follow-up waiting", 409);
-  if (!turn.text && !(audio && r.scoring?.engine !== "claude" && agentEnabled())) {
+  // The agent continues a thread it started; anything else is scored by Claude.
+  const useAgent = agentEnabled() && (target === "main" || r.scoring?.engine === "agent");
+  // A recording with no text only works when the agent transcribes it.
+  if (!turn.text && !(audio && useAgent)) {
     throw new SessionError("we didn't catch an answer — try again or type it", 422);
   }
 
   // ---- eval agent ----
-  const useAgent = agentEnabled() && (target === "main" || r.scoring?.engine === "agent");
   if (useAgent) {
     try {
       const run =
@@ -146,23 +148,34 @@ export async function submitAnswer(
       ? { ...r, answer: turn }
       : { ...r, followUps: r.followUps.map((f, i, all) => (i === all.length - 1 ? { ...f, answer: turn } : f)) };
 
-  // With no follow-up possible there's nothing to decide, so the user doesn't wait
-  // for the score: the route scores it after responding (scoreLater), and finalize
-  // picks it up if that hasn't landed by the end.
+  // The user never waits for the score: the route scores it after responding
+  // (scoreLater), and finalize picks it up if that hasn't landed by the end.
+  // The only thing they wait on is whether to ask a follow-up, which is a much
+  // shorter call than a full evaluation.
   const canFollowUp = target === "main" && config.difficulty !== "easy" && next.followUps.length < MAX_FOLLOW_UPS;
-  if (!canFollowUp) {
-    next.scoring = { engine: "claude", status: "pending" };
-    return next;
-  }
+  const nextQuestion = canFollowUp
+    ? await decideFollowUp({
+        domain: config.domain,
+        difficulty: config.difficulty,
+        question: next.question.text,
+        answer: turn.text,
+      }).catch((err) => {
+        console.warn("[claude:follow-up] deciding failed, moving on:", err instanceof Error ? err.message : err);
+        return null;
+      })
+    : null;
 
-  const evaluation = await claudeScore(config, next, target === "main");
-  if (target === "main" && evaluation?.needsFollowUp && evaluation.followUp && next.followUps.length < MAX_FOLLOW_UPS) {
-    next.followUps = [...next.followUps, { question: evaluation.followUp, skipped: false }];
+  if (nextQuestion) {
+    // Scored once the follow-up is answered or skipped, together with its answer.
+    next.followUps = [...next.followUps, { question: nextQuestion, skipped: false }];
+    next.scoring = undefined;
+  } else {
+    next.scoring = { engine: "claude", status: "pending" };
   }
   return next;
 }
 
-/** True when submitAnswer left Claude scoring for after the response. */
+/** True when submitAnswer or skip left Claude scoring for after the response. */
 export function scoresLater(r: QuestionResult) {
   return r.scoring?.engine === "claude" && r.scoring.status === "pending";
 }
@@ -194,8 +207,8 @@ export async function skip(row: SessionRow, index: number, target: Target): Prom
       warn("skip", err);
     }
   }
-  // Claude already scored the main answer; on agent failure, score it now.
-  if (r.scoring?.engine !== "claude" || !r.evaluation) await claudeScore(row.config, next, false);
+  // Claude path (or the agent failed): score after the response, like an answer.
+  if (!(r.scoring?.engine === "claude" && r.evaluation)) next.scoring = { engine: "claude", status: "pending" };
   return next;
 }
 

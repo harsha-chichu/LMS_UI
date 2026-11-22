@@ -53,6 +53,8 @@ npm run build
 
 CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `npm audit` for production dependencies and a job that applies every migration to a fresh Postgres.
 
+**Region:** API routes run in Vercel's Seoul region (`icn1`, set in `vercel.json`), next to the Supabase project (ap-northeast-2). Each answer makes several sequential Supabase calls plus one to the eval agent (Singapore), so a far-away region adds a round trip to each. Move it if the database moves.
+
 **Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. 0013 must be applied before this version goes live: the API calls `lms_rate_limit` and `lms_save_result_guarded`.
 
 ## Screens
