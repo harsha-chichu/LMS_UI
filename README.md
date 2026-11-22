@@ -74,7 +74,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 | `/admin/questions` | Bank browser with times asked, skip rate and average score; add, edit, retire/restore; coverage per domain and level; review generated questions; CSV export |
 | `/admin/feedback` | Inbox with new / triaged / resolved status, private notes, CSV export |
 | `/admin/ai` | Claude, eval agent and Deepgram calls, failures and latency per operation; estimated Claude cost from token counts (`src/lib/admin/pricing.ts`); agent vs fallback vs not-scored share; score distribution |
-| `/admin/system` | Live checks (database, eval agent, keys present), DB size and table rows, busiest rate-limit buckets; switches to **pause new sessions** and show a **maintenance banner** |
+| `/admin/system` | Live checks (database, eval agent, keys present), DB size and table rows, busiest rate-limit buckets; switches for **maintenance mode** (banner + no new sessions; everything else still works) and **pause new sessions** (the same block for a short pause, e.g. an AI outage) |
 | `/admin/announcements` | Banners shown at the top of the app, with an optional end time |
 | `/admin/audit` | Every admin action: who, what, when |
 

@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { newSessionBlock } from "@/lib/admin/session-block";
 import { requireUser } from "@/lib/auth";
 import { practiceRequestSchema, savedTestRequestSchema, sessionConfigSchema } from "@/lib/llm/schemas";
 import { type Attempt, PRACTICE_COUNT, unsolvedQuestionIds } from "@/lib/mastery";
@@ -22,15 +23,14 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const { supabase, user } = auth;
 
-  // Admins can pause new sessions from /admin/system (e.g. during an AI outage).
-  const { data: paused } = await supabase.from("lms_app_settings").select("value").eq("key", "sessions_paused").maybeSingle();
-  const pause = paused?.value as { enabled?: boolean; message?: string } | undefined;
-  if (pause?.enabled) {
-    return Response.json(
-      { error: pause.message?.trim() || "starting new sessions is paused for a moment — please try again soon." },
-      { status: 503 },
-    );
-  }
+  // Maintenance mode or "pause new sessions" (both set from /admin/system) stop
+  // new sessions; the rest of the app keeps working.
+  const { data: settings } = await supabase
+    .from("lms_app_settings")
+    .select("key, value")
+    .in("key", ["maintenance", "sessions_paused"]);
+  const blocked = newSessionBlock(settings);
+  if (blocked) return Response.json({ error: blocked }, { status: 503 });
 
   const body: unknown = await request.json().catch(() => null);
   // Taken atomically in Postgres, so parallel requests can't all slip under the limit.

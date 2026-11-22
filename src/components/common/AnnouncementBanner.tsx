@@ -1,5 +1,6 @@
 import { Info, TriangleAlert } from "lucide-react";
 import { connection } from "next/server";
+import { newSessionBlock } from "@/lib/admin/session-block";
 import { createSupabaseServer } from "@/lib/supabase/server";
 
 type Banner = { id: string; message: string; level: "info" | "warning" };
@@ -18,13 +19,9 @@ export async function AnnouncementBanner() {
       supabase.from("lms_announcements").select("id, message, level").order("created_at", { ascending: false }).limit(3),
       supabase.from("lms_app_settings").select("key, value").in("key", ["maintenance", "sessions_paused"]),
     ]);
-    for (const s of settings.data ?? []) {
-      const v = s.value as { enabled?: boolean; message?: string };
-      if (!v?.enabled) continue;
-      const fallback =
-        s.key === "maintenance" ? "we're doing some maintenance — things may be slow for a bit." : "starting new sessions is paused for a moment. please try again soon.";
-      banners.push({ id: s.key, message: v.message?.trim() || fallback, level: "warning" });
-    }
+    // Maintenance or a pause: one banner saying new sessions are paused (same text the API returns).
+    const blocked = newSessionBlock(settings.data);
+    if (blocked) banners.push({ id: "session-block", message: blocked, level: "warning" });
     banners = [...banners, ...((ann.data ?? []) as Banner[])];
   } catch {
     return null;

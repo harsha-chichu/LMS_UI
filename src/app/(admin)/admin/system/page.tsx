@@ -80,8 +80,8 @@ async function System() {
               />
               <SettingToggle
                 settingKey="maintenance"
-                title="maintenance banner"
-                help="shows a banner across the app with your message."
+                title="maintenance mode"
+                help="shows a banner and stops new sessions. users can still browse their profile, reports and friends, and finish sessions already in progress."
                 enabled={settings.maintenance.enabled}
                 message={settings.maintenance.message}
               />
