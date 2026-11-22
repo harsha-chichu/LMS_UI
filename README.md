@@ -28,6 +28,11 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 - Follow-ups are still generated live from the user's answer.
 - The profile shows each user's weak and mastered topics.
 
+**How voice answers are transcribed**
+- With `DEEPGRAM_API_KEY` set, mic audio streams to Deepgram (nova-3) and words appear live as the user speaks (`src/hooks/deepgram.ts`). The browser gets a 60-second token from `/api/speech/token`; the key never leaves the server. Technical words from the question and the session's topics are sent as keyterms so names like `useEffect` or `OAuth` come out right.
+- Without the key, or if Deepgram can't be reached, it falls back to the browser's own speech recognition (Chrome, Edge, Safari).
+- Either way, the transcript lands in the answer box to fix before it's sent.
+
 **How scoring works**
 - Each answer goes to the eval agent (with the recorded audio for voice answers). It replies as soon as it has decided whether to ask a follow-up; scoring continues in the background and is collected when the session finishes.
 - If the agent is down or errors, the built-in Claude evaluator (`src/lib/llm/`) scores instead. If that fails too, the answer is kept and retried when the session finishes; if it still can't be scored, the report marks it "not scored" and leaves it out of the average.

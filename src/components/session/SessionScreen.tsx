@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PillLink } from "@/components/common/PillButton";
 import { SaveButton } from "@/components/common/SaveButton";
 import { ListeningView } from "@/components/session/ListeningView";
@@ -17,6 +17,7 @@ import {
 } from "@/components/session/parts";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useSessionMachine } from "@/hooks/useSessionMachine";
+import { keytermsFor } from "@/hooks/deepgram";
 import { useSpeechRecognition, useSpeechSupported } from "@/hooks/useSpeechRecognition";
 import { domainShort } from "@/lib/constants";
 import {
@@ -124,29 +125,33 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
     }
   };
 
-  const startListening = useCallback(() => {
+  // Question words the speech model should expect (useEffect, OAuth, Kubernetes…).
+  const keyterms = useMemo(() => [...(config.topics ?? []), ...keytermsFor(prompt)].slice(0, 40), [config.topics, prompt]);
+
+  const startListening = useCallback(async () => {
     setNotice(null);
     setRecording(null);
-    if (!speech.start()) {
-      dispatch({ type: "setInput", input: "text" });
-      return;
-    }
-    void recorder.start();
+    // Show the listening view right away; words stream in once the connection opens.
     dispatch({ type: "listen", at: Date.now() });
-  }, [dispatch, recorder, speech]);
+    const [started] = await Promise.all([speech.start({ keyterms }), recorder.start()]);
+    if (!started) {
+      recorder.cancel();
+      dispatch({ type: "cancelListening" });
+      dispatch({ type: "setInput", input: "text" });
+    }
+  }, [dispatch, keyterms, recorder, speech]);
 
   const cancelListening = useCallback(() => {
-    speech.stop();
+    speech.cancel();
     recorder.cancel();
     dispatch({ type: "cancelListening" });
   }, [dispatch, recorder, speech]);
 
   const submitVoice = useCallback(async () => {
-    const text = speech.stop();
-    const audio = await recorder.stop();
+    const [text, audio] = await Promise.all([speech.stop(), recorder.stop()]);
     if (!text && !audio) {
       setNotice("didn't catch anything — try again, or tap ✕ and type instead.");
-      speech.start();
+      void speech.start({ keyterms });
       void recorder.start();
       return;
     }
@@ -155,10 +160,10 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
     // The recording goes along when they send, for the delivery scores.
     setRecording({ audio, durationSec, heard: Boolean(text.trim()), index: state.index, target: state.target });
     dispatch({ type: "setInput", input: "text", draft: text });
-  }, [dispatch, recorder, speech, state.index, state.listenStartedAt, state.target]);
+  }, [dispatch, keyterms, recorder, speech, state.index, state.listenStartedAt, state.target]);
 
-  const typeInstead = useCallback(() => {
-    const heard = speech.stop();
+  const typeInstead = useCallback(async () => {
+    const heard = await speech.stop();
     recorder.cancel();
     speech.clearError();
     dispatch({ type: "setInput", input: "text", draft: heard || state.draft });
@@ -173,7 +178,7 @@ function SessionRunner({ row, defaultInput }: { row: SessionRow; defaultInput: A
 
   const close = async () => {
     if (!window.confirm("end this session? it won't be scored.")) return;
-    speech.stop();
+    speech.cancel();
     recorder.cancel();
     await abandonSession(row.id).catch(() => {});
     router.push("/setup");
