@@ -7,7 +7,7 @@ import { domainLabel } from "@/lib/constants";
 import { db, emailsFor, isUuid } from "@/lib/admin/data";
 import { fmtDateTime } from "@/lib/admin/format";
 import { requireAdminPage } from "@/lib/admin/guard";
-import { unscoredIndexes } from "@/lib/admin/rescore";
+import { hasSuggestion, missingSuggestionIndexes, unscoredIndexes } from "@/lib/admin/rescore";
 import type { QuestionResult, Report, SessionConfig, Question } from "@/types";
 
 export const metadata: Metadata = { title: "session" };
@@ -43,6 +43,7 @@ async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[i
   };
   const who = (await emailsFor([s.user_id])).get(s.user_id);
   const unscored = unscoredIndexes(s.results ?? []);
+  const missing = missingSuggestionIndexes(s.results ?? []);
 
   return (
     <>
@@ -59,6 +60,14 @@ async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[i
                   confirm={`Score ${unscored.length} unscored answer${unscored.length === 1 ? "" : "s"} with the eval agent (Claude as backup)${s.status === "completed" ? " and rebuild the report" : ""}? This can take a minute or two.`}
                 >
                   re-score {unscored.length} unscored
+                </ActionButton>
+              )}
+              {missing.length > 0 && s.status === "completed" && (
+                <ActionButton
+                  url={`/api/admin/sessions/${s.id}/suggest`}
+                  confirm={`Write suggested answers for ${missing.length} question${missing.length === 1 ? "" : "s"} with the eval agent (Claude as backup)? Scores and feedback stay as they are. This can take a minute or two.`}
+                >
+                  add {missing.length} suggested answer{missing.length === 1 ? "" : "s"}
                 </ActionButton>
               )}
               {s.status === "in_progress" && (
@@ -141,6 +150,23 @@ async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[i
                   {r.evaluation.nextTime && <span className="mt-2 block text-subtle">next time: {r.evaluation.nextTime}</span>}
                 </Block>
               )}
+              {r?.evaluation &&
+                (hasSuggestion(r) ? (
+                  <Block label="suggested answer">
+                    {r.evaluation.suggestedPoints?.length ? (
+                      <ol className="mb-2 list-decimal space-y-1 pl-5">
+                        {r.evaluation.suggestedPoints.map((p, j) => (
+                          <li key={j}>{p}</li>
+                        ))}
+                      </ol>
+                    ) : null}
+                    {r.evaluation.suggestedAnswer}
+                  </Block>
+                ) : (
+                  <div className="mt-4 border-t border-line pt-3">
+                    <Badge>no suggested answer stored</Badge>
+                  </div>
+                ))}
               {r?.answer?.communication && (
                 <Block label="delivery (eval agent)">
                   grammar {r.answer.communication.grammar_score} · pronunciation {r.answer.communication.pronunciation_score} · fluency{" "}
