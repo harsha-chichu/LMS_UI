@@ -38,8 +38,22 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 - If the agent is down or errors, the built-in Claude evaluator (`src/lib/llm/`) scores instead. If that fails too, the answer is kept and retried when the session finishes; if it still can't be scored, the report marks it "not scored" and leaves it out of the average.
 - The report weights answers 70% and communication 30%. With recorded audio, the agent's grammar / pronunciation / fluency / clarity scores are blended into communication.
 - The agent keeps state in memory: restarting it mid-session drops in-flight evaluations (the fallback covers them).
-- API routes require a signed-in user; each account can start 30 sessions per 24 hours.
+- API routes require a signed-in user. Routes that cost money are rate-limited per user (`src/lib/rate-limit.ts`): 30 sessions a day, 120 transcription tokens and 300 answers an hour, 20 feedback messages a day. Counters live in Postgres (`lms_rate_limit`, migration 0013) and are taken atomically, so parallel requests can't slip past a limit.
+- Saving an answer is a compare-and-set on that question (`lms_save_result_guarded`): a double submit or a second tab gets a 409 instead of overwriting the first answer.
 - Users can read their own sessions but not write them: only the API routes do, with the service-role key, so scores on the friends leaderboard can't be edited from the browser.
+
+## Checks
+
+```bash
+npm run lint
+npm run typecheck   # generates Next's route types, then tsc
+npm test            # vitest
+npm run build
+```
+
+CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `npm audit` for production dependencies and a job that applies every migration to a fresh Postgres.
+
+**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. 0013 must be applied before this version goes live: the API calls `lms_rate_limit` and `lms_save_result_guarded`.
 
 ## Screens
 
