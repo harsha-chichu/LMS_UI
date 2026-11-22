@@ -1,25 +1,67 @@
 # LMS. — interview practice
 
-Pick a domain, answer out loud (or type), get follow-ups when an answer is thin, and finish with a report scored out of 100 (70% answer content, 30% communication).
+Pick a domain, answer out loud (or type), get follow-ups when an answer is thin, and finish with a report scored out of 100 (70% answer content, 30% communication). Each question shows what worked, what to improve, your answer and a suggested answer.
 
-Built with Next.js 16 (App Router), Tailwind CSS v4, shadcn/ui (Base UI) and the Anthropic SDK.
+**Built with:** Next.js 16 (App Router), Supabase (auth + Postgres), Tailwind CSS v4 and shadcn/ui (Base UI).
+
+**AI services:**
+- **Scoring:** the separate **eval agent** ([`harsha-chichu/preppy_eval_agent`](https://github.com/harsha-chichu/preppy_eval_agent), Python, Gemini) decides follow-ups, scores answers, writes the suggested answers and summarises the session.
+- **Claude** (Anthropic SDK) is the **backup** scorer when the agent fails, and writes new questions when the question bank can't fill a session.
+- **Deepgram** transcribes voice answers live.
 
 ## Run it
 
 ```bash
 npm install
-cp .env.example .env.local      # fill in Claude + Supabase keys
+cp .env.example .env.local      # fill in the keys (see "Environment variables")
 npm run dev                     # http://localhost:3000
-
-# in a second terminal — the eval agent
-cd agents/eval_agent
-uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
 
-**One-time Supabase setup**
-1. SQL editor → run the files in `supabase/migrations/` in order (`0001_init.sql` creates `lms_profiles`, `lms_sessions`, RLS policies and a sign-up trigger; later ones add saved questions, friends, server-only session writes, and the question bank with its seed; existing tables are untouched). Then copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
-2. Authentication → URL configuration → site URL `http://localhost:3000`, redirect URL `http://localhost:3000/auth/callback`.
-3. Authentication → Providers → Google → enable, paste the client id/secret from Google Cloud (authorised redirect URI: `https://<project>.supabase.co/auth/v1/callback`).
+Run the eval agent from its own repo, in a second terminal:
+
+```bash
+git clone https://github.com/harsha-chichu/preppy_eval_agent
+```
+
+```bash
+cd preppy_eval_agent && uv run uvicorn server:app --host 127.0.0.1 --port 8000
+```
+
+Use the same token on both sides: `EVAL_AGENT_TOKEN` in the agent's `.env` and in this app's `.env.local`. Point `EVAL_AGENT_URL` at the agent (`http://127.0.0.1:8000` locally). Without an agent the app still works, with Claude scoring everything.
+
+## Environment variables
+
+Set them in `.env.local` locally and in Vercel → Settings → Environment Variables in production, then redeploy. Never prefix a secret with `NEXT_PUBLIC_`. `/admin/system` shows which are set (names only).
+
+| Variable | Needed? | What it's for | Without it |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL | nothing works |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or `…_PUBLISHABLE_KEY`) | yes | browser and server Supabase clients | nothing works |
+| `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`) | yes | server-only writes (sessions, admin, logs) | sessions can't be saved |
+| `EVAL_AGENT_URL`, `EVAL_AGENT_TOKEN` | recommended | the eval agent (main scorer) | Claude scores everything |
+| `ANTHROPIC_API_KEY` | recommended | backup scoring, follow-ups and summaries; new questions for custom topics | no backup when the agent fails (answers end up "not scored"); custom topics get existing bank questions instead of new ones |
+| `DEEPGRAM_API_KEY` | optional | live transcription | browser speech recognition (Chrome, Edge, Safari) |
+| `ADMIN_EMAILS` | for `/admin` | comma-separated admin emails | only profiles with `role = 'admin'` can open `/admin` |
+| `ADMIN_MFA_REQUIRED` | optional | `false` turns off admin two-factor sign-in (local dev only) | 2FA required |
+| `CRON_SECRET` | for alerts | lets the Supabase schedule call `/api/cron/tick` | no alerts or budget alerts |
+| `RESEND_API_KEY`, `EMAIL_FROM` | optional | email alerts and `/admin/email` (needs a domain verified in Resend) | no email |
+| `ALERT_EMAILS` | optional | who gets alert emails | alerts go to `ADMIN_EMAILS` |
+| `ALERT_WEBHOOK_URL` | optional | Slack or Discord channel for alerts | no chat alerts |
+| `NEXT_PUBLIC_APP_URL` | optional | links in emails and alerts | relative links |
+
+## One-time Supabase setup
+1. **SQL editor:** run every file in `supabase/migrations/`, in order (`0001` … `0015`).
+   - The early ones create profiles, sessions, the question bank and their policies.
+   - `0014` and `0015` add the admin dashboard.
+   - Existing tables are untouched.
+2. **Service key:** copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
+3. **Authentication → URL configuration:**
+   - site URL: `http://localhost:3000`
+   - redirect URL: `http://localhost:3000/auth/callback`
+4. **Authentication → Providers → Google:** enable it, then paste the client id and secret from Google Cloud. The authorised redirect URI is `https://<project>.supabase.co/auth/v1/callback`.
+5. **For `/admin`:** follow "Admin dashboard → Setup" below (2FA and the health-check schedule).
+
+## How it works
 
 **How questions are picked**
 - Questions come from a bank in Supabase (`lms_questions`, seeded by `supabase/migrations/0006_seed_question_bank.sql`), not generated per session. When a session completes, each bank question's score is recorded in `lms_question_attempts`.
@@ -34,13 +76,19 @@ uv run python -m uvicorn server:app --host 127.0.0.1 --port 8000
 - Either way, the transcript lands in the answer box to fix before it's sent.
 
 **How scoring works**
-- Each answer goes to the eval agent (with the recorded audio for voice answers). It replies as soon as it has decided whether to ask a follow-up; scoring continues in the background and is collected when the session finishes.
-- If the agent is down or errors, the built-in Claude evaluator (`src/lib/llm/`) scores instead. If that fails too, the answer is kept and retried when the session finishes; if it still can't be scored, the report marks it "not scored" and leaves it out of the average.
-- The report weights answers 70% and communication 30%. With recorded audio, the agent's grammar / pronunciation / fluency / clarity scores are blended into communication.
-- The agent keeps state in memory: restarting it mid-session drops in-flight evaluations (the fallback covers them).
-- API routes require a signed-in user. Routes that cost money are rate-limited per user (`src/lib/rate-limit.ts`): 30 sessions a day, 120 transcription tokens and 300 answers an hour, 20 feedback messages a day. Counters live in Postgres (`lms_rate_limit`, migration 0013) and are taken atomically, so parallel requests can't slip past a limit.
-- Saving an answer is a compare-and-set on that question (`lms_save_result_guarded`): a double submit or a second tab gets a 409 instead of overwriting the first answer.
-- Users can read their own sessions but not write them: only the API routes do, with the service-role key, so scores on the friends leaderboard can't be edited from the browser.
+For each answer, in this order:
+1. **Eval agent.** The answer (with the recording, for voice) goes to the eval agent. It replies as soon as it has decided whether to ask a follow-up. Scoring then continues in the background (score, feedback, strengths and weaknesses, suggested answer and key points, delivery scores for voice) and is collected when the session finishes.
+2. **Claude.** If the agent is down or errors, Claude scores instead (`src/lib/llm/`).
+3. **Not scored.** If both fail, the answer is kept and retried when the session finishes. If it still can't be scored, the report marks it "not scored" and leaves it out of the average. Admins can **re-score** it later from `/admin/sessions`.
+
+More details:
+- The session summary also comes from the agent first, then Claude, then a plain fallback text.
+- The report weights answers 70% and communication 30%. With recorded audio, the agent's grammar, pronunciation, fluency and clarity scores are blended into communication.
+- The agent keeps state in memory. Restarting it mid-session drops in-flight evaluations; the fallback covers them.
+- API routes require a signed-in user. Routes that cost money are rate-limited per user (defaults in `src/lib/limits.ts`, editable in `/admin/system`): 30 sessions a day, 120 transcription tokens and 300 answers an hour, 20 feedback messages a day. Counters live in Postgres (`lms_rate_limit`) and are taken atomically.
+- Saving an answer is a compare-and-set on that question (`lms_save_result_guarded`). A double submit or a second tab gets a 409 instead of overwriting the first answer.
+- Users can read their own sessions but not write them. Only the API routes write them, with the service-role key, so scores on the friends leaderboard can't be edited from the browser.
+- New sessions can be blocked by maintenance mode, "pause new sessions" or the daily AI budget (all in `/admin/system`). Everything else keeps working.
 
 ## Checks
 
@@ -55,7 +103,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 
 **Region:** API routes run in Vercel's Seoul region (`icn1`, set in `vercel.json`), next to the Supabase project (ap-northeast-2). Each answer makes several sequential Supabase calls plus one to the eval agent (Singapore), so a far-away region adds a round trip to each. Move it if the database moves.
 
-**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Apply 0014 and 0015 before this version goes live: without them the app keeps working, but `/admin` shows errors and usage and server errors aren't recorded.
+**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Without `0014` and `0015`, the app keeps working, but `/admin` shows errors, and usage and server errors aren't recorded.
 
 ## Admin dashboard (`/admin`)
 
@@ -98,34 +146,57 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 
 ## Screens
 
-| Route | Design |
+| Route | What it is |
 |---|---|
 | `/` | Landing |
 | `/setup` | Session setup |
 | `/session/[id]` | Listening · follow-up · text mode (resumes after refresh) |
-| `/report/[id]` | Final report |
-| `/profile` | Profile |
+| `/report/[id]` | Final report: per question, what worked / to improve, then your answer next to the suggested answer |
+| `/profile`, `/friends`, `/settings` | Progress, friends, preferences |
+| `/admin/*` | Admin dashboard (see above) |
+| `/admin-mfa` | Two-factor sign-in for admins |
 
 Plus `/login`, `/signup`, `/forgot-password`, `/reset-password`. Everything except the landing page and auth screens requires sign-in (`src/proxy.ts`).
+
+## Troubleshooting
+
+| What you see | Why | Fix |
+|---|---|---|
+| Re-score or scoring error `claude: 401 … invalid x-api-key`; `/admin/system` shows Claude **key rejected** | `ANTHROPIC_API_KEY` is missing or wrong. Claude is only the backup, so this shows up when the eval agent also fails | Put a valid key from console.anthropic.com in Vercel, then redeploy |
+| Answers "not scored" | The eval agent and Claude both failed at the time (the reason is on the session in `/admin/sessions`) | Fix the cause, then use **re-score** on the session |
+| No "suggested answer" in a report, mostly on questions with follow-ups | The eval agent returned a score without one. Fixed in `preppy_eval_agent`, where the suggested answer is now required | Redeploy the agent. For existing reports, go to `/admin/sessions` → "missing suggested answers" → **add suggested answers** (scores don't change) |
+| No alerts arrive | The scheduled check isn't running | Set `CRON_SECRET`, run the `cron.schedule` block from `0015` once, then check `select status_code, created from net._http_response order by created desc limit 5;` (401 = wrong secret, 503 = not set or not redeployed, 404 = wrong URL) |
+| `/admin-mfa` can't show a QR code | TOTP is off in Supabase | Supabase → Authentication → Multi-factor → enable authenticator app (TOTP). It's free; only SMS is paid |
+| Locked out of `/admin` (lost authenticator) | 2FA is required | Temporarily set `ADMIN_MFA_REQUIRED=false`, redeploy, set up 2FA again, then remove it |
+| A page in `/admin` shows "This page couldn't load" | A server error | `/admin/errors` lists it with the stack trace, and so do the Vercel logs |
 
 ## Where things live
 
 ```
 src/
-├─ app/                  routes; (admin)/admin/* dashboard; api/sessions/*, api/admin/*; auth/callback
-├─ proxy.ts              Supabase session refresh + route gating (Next 16's "middleware")
-├─ components/           auth, landing, setup, session, report, profile, common, ui (shadcn)
-├─ hooks/                speech recognition, audio recorder, session state machine, timer
+├─ app/
+│  ├─ (app)/               signed-in user screens (setup, profile, report, friends, settings)
+│  ├─ (admin)/admin/       admin dashboard pages
+│  ├─ (admin-mfa)/         two-factor sign-in for admins
+│  └─ api/
+│     ├─ sessions/*        start, answers, skip, complete, abandon
+│     ├─ admin/*           admin actions (every route checks access + 2FA)
+│     └─ cron/tick         scheduled health check (alerts)
+├─ instrumentation.ts      records uncaught server errors for /admin/errors
+├─ proxy.ts                Supabase session refresh + route gating (Next 16's "middleware")
+├─ components/             auth, landing, setup, session, report, profile, admin, common, ui (shadcn)
+├─ hooks/                  speech recognition, audio recorder, session state machine, timer
 ├─ lib/
-│  ├─ admin/             admin guard, audit log, usage tracking, dashboard queries
-│  ├─ agent/             HTTP client + mapping for the Python eval agent
-│  ├─ sessions/          per-question scoring engine (agent → Claude fallback), persistence
-│  ├─ supabase/          browser + server clients
-│  ├─ llm/               Claude client, prompts, schemas
-│  ├─ data.ts            SWR hooks (profile, sessions) + session API calls
-│  ├─ scoring.ts         report assembly + 70/30 weighting
-│  └─ stats.ts           streaks, heatmap, trend
+│  ├─ admin/               guard (roles, 2FA), audit log, usage + error logging, alerts, budget, CSV, dashboard queries
+│  ├─ agent/               HTTP client + mapping for the eval agent
+│  ├─ sessions/            per-question scoring engine (agent → Claude), re-scoring, persistence
+│  ├─ llm/                 Claude client, prompts, schemas
+│  ├─ supabase/            browser + server clients
+│  ├─ limits.ts            rate-limit defaults
+│  ├─ scoring.ts           report assembly + 70/30 weighting
+│  └─ stats.ts             streaks, heatmap, trend
 └─ types/
-supabase/migrations/     database schema
-agents/eval_agent/       the evaluation agent (separate repo); server.py is its HTTP wrapper
+supabase/migrations/       database schema (run in order)
 ```
+
+The eval agent lives in its own repo, [`harsha-chichu/preppy_eval_agent`](https://github.com/harsha-chichu/preppy_eval_agent).
