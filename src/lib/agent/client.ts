@@ -83,6 +83,32 @@ export async function summarize(input: SummaryRequest): Promise<AgentSummary> {
   return (await res.json()) as AgentSummary;
 }
 
+/** How answers in a domain are scored at one difficulty (agent: GET /rubrics). */
+export interface AgentRubric {
+  topic: string;
+  difficulty: Difficulty;
+  criteria: { name: string; weight: number; looks_for: string }[];
+  expectations: string;
+  forgiven: string[];
+  not_forgiven: string[];
+  answer_words: string;
+  key_points: number;
+}
+
+/** The rubric the agent scores with. Throws on failure; the setup screen then just hides it. */
+export async function fetchRubric(domain: string, difficulty: Difficulty): Promise<AgentRubric> {
+  if (!BASE || !TOKEN) throw new Error("eval agent not configured");
+  const query = new URLSearchParams({ domain, difficulty });
+  const res = await fetch(`${BASE}/rubrics?${query}`, {
+    headers: { "x-agent-token": TOKEN },
+    // Rubrics only change when the agent is redeployed.
+    next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!res.ok) throw new Error(`eval agent /rubrics → ${res.status}`);
+  return (await res.json()) as AgentRubric;
+}
+
 async function call(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<AgentRun> {
   if (!BASE || !TOKEN) throw new Error("eval agent not configured");
   const res = await fetch(`${BASE}${path}`, {

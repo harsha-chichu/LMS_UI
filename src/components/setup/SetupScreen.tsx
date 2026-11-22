@@ -4,6 +4,7 @@ import { Keyboard, Mic } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { MicCheck } from "@/components/setup/MicCheck";
+import { RubricCard } from "@/components/setup/RubricCard";
 import { AppColumn } from "@/components/common/Layout";
 import { PillButton } from "@/components/common/PillButton";
 import { SegmentedPicker } from "@/components/common/SegmentedPicker";
@@ -112,6 +113,8 @@ function SetupForm({ initial }: { initial: Preferences }) {
             onChange={(difficulty) => set({ difficulty })}
           />
         </Row>
+
+        <RubricCard domain={config.domain} difficulty={config.difficulty} />
 
         <Row label="questions">
           <SegmentedPicker

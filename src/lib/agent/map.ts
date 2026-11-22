@@ -2,18 +2,14 @@ import type { AgentEvaluationResult, AgentSummary, SummaryRequest } from "@/lib/
 import type { ReportNarrative } from "@/lib/scoring";
 import type { Difficulty, Domain, Evaluation, QuestionResult, SpeechMetrics } from "@/types";
 
-/**
- * The agent's rubric registry knows "ai", "ml", "ai system design",
- * "ml system design" and "general". Everything else uses "general" until
- * the agent grows rubrics for those domains.
- */
+/** The agent has a rubric for each LMS domain, under the same key (see its src/rubrics.py). */
 const AGENT_DOMAIN: Record<Domain, string> = {
-  "ai-ml": "ai",
-  "data-science": "general",
-  backend: "general",
-  frontend: "general",
-  "system-design": "general",
-  behavioral: "general",
+  "ai-ml": "ai-ml",
+  "data-science": "data-science",
+  backend: "backend",
+  frontend: "frontend",
+  "system-design": "system-design",
+  behavioral: "behavioral",
 };
 
 export function agentDomain(domain: Domain) {

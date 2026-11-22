@@ -177,6 +177,19 @@ export interface SavedQuestion {
   created_at: string;
 }
 
+/** How answers in a domain are scored at one difficulty (from the eval agent). */
+export interface ScoringRubric {
+  difficulty: Difficulty;
+  /** What a strong answer looks like overall at this level. */
+  expectations: string;
+  /** Weights add up to 1. */
+  criteria: { name: string; weight: number; looksFor: string }[];
+  /** Not held against you at this level. */
+  forgiven: string[];
+  /** Always held against you. */
+  notForgiven: string[];
+}
+
 export type FriendRelation = "none" | "outgoing" | "incoming" | "friends";
 
 export interface UserSearchResult {
