@@ -1,11 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNext } from "@/lib/redirect";
 import { createSupabaseServer } from "@/lib/supabase/server";
-
-/** Only allow same-site relative redirects. */
-function safeNext(value: string | null) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/setup";
-}
 
 /**
  * Lands Google OAuth, email confirmation and password-recovery links.

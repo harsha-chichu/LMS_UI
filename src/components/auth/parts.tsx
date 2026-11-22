@@ -156,7 +156,4 @@ export function friendlyAuthError(message: string) {
   return "something went wrong — try again.";
 }
 
-/** Only same-site relative paths are allowed as post-login destinations. */
-export function safeNext(value: string | null | undefined) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/setup";
-}
+export { safeNext } from "@/lib/redirect";
