@@ -1,33 +1,52 @@
 import "server-only";
+import { LIMITS, type LimitName, type Override, resolveLimit } from "@/lib/limits";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-const HOUR = 60 * 60;
-const DAY = 24 * HOUR;
+export { LIMITS, type LimitName } from "@/lib/limits";
 
 /**
- * Per-user limits on the routes that cost money (LLM, eval agent, Deepgram).
- * Fixed windows, counted atomically in Postgres (lms_rate_limit, migration 0013).
+ * Admin-set limits and per-user overrides, cached for a minute per server
+ * instance so the hot paths (answers) don't pay an extra query. Changes from
+ * /admin apply within a minute (immediately on the instance that saved them).
  */
-export const LIMITS = {
-  /** Keeps one account from burning through the LLM budget. */
-  session: { limit: 30, windowSec: DAY },
-  /** A session needs a token per recording; this is far above honest use. */
-  speechToken: { limit: 120, windowSec: HOUR },
-  /** Answers and skips: 10 questions × (1 answer + 2 follow-ups) per session, with room for retries. */
-  answer: { limit: 300, windowSec: HOUR },
-  feedback: { limit: 20, windowSec: DAY },
-} as const;
+const CACHE_MS = 60_000;
+let cache: { at: number; configured: Partial<Record<string, number>>; overrides: Override[] } | null = null;
 
-export type LimitName = keyof typeof LIMITS;
+async function limitConfig() {
+  if (cache && Date.now() - cache.at < CACHE_MS) return cache;
+  const db = getSupabaseAdmin();
+  const [settings, overrides] = await Promise.all([
+    db.from("lms_app_settings").select("value").eq("key", "rate_limits").maybeSingle(),
+    db.from("lms_rate_limit_overrides").select("user_id, bucket, max_count, expires_at").gt("expires_at", new Date().toISOString()),
+  ]);
+  cache = {
+    at: Date.now(),
+    // Missing tables (migration 0015 not run yet) just mean "use the defaults".
+    configured: settings.error ? {} : ((settings.data?.value as Partial<Record<string, number>> | undefined) ?? {}),
+    overrides: overrides.error ? [] : ((overrides.data ?? []) as Override[]),
+  };
+  return cache;
+}
+
+/** Drops the cached limits, after an admin changes them. */
+export function clearLimitCache() {
+  cache = null;
+}
+
+/** The limit that applies to this user right now. */
+export async function limitFor(userId: string, name: LimitName) {
+  const { configured, overrides } = await limitConfig();
+  return resolveLimit(name, userId, configured, overrides);
+}
 
 /** Takes one unit of `name` for this user. False once the window's limit is used up. Throws on database errors. */
 export async function takeRateLimit(userId: string, name: LimitName): Promise<boolean> {
-  const { limit, windowSec } = LIMITS[name];
+  const limit = await limitFor(userId, name);
   const { data, error } = await getSupabaseAdmin().rpc("lms_rate_limit", {
     p_user: userId,
     p_bucket: name,
     p_limit: limit,
-    p_window_seconds: windowSec,
+    p_window_seconds: LIMITS[name].windowSec,
   });
   if (error) throw new Error(`rate limit check failed: ${error.message}`);
   return data === true;

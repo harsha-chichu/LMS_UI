@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ActionButton } from "@/components/admin/actions";
 import { QuestionForm } from "@/components/admin/QuestionForm";
+import { QuestionImport } from "@/components/admin/QuestionImport";
 import {
   Badge,
   FilterBar,
@@ -56,7 +57,8 @@ export default function QuestionsPage({ searchParams }: PageProps<"/admin/questi
 }
 
 async function Questions({ searchParams }: { searchParams: PageProps<"/admin/questions">["searchParams"] }) {
-  await requireAdminPage();
+  const { access } = await requireAdminPage();
+  const canWrite = access === "admin";
   const sp = await searchParams;
   const f = {
     domain: param(sp.domain),
@@ -68,6 +70,9 @@ async function Questions({ searchParams }: { searchParams: PageProps<"/admin/que
   };
   const page = pageParam(sp.page);
   const edit = param(sp.edit);
+  // "add a question" links from /admin/quality pre-fill a topic and domain.
+  const newTopic = param(sp.newTopic).trim().toLowerCase().slice(0, 40);
+  const newDomain = DOMAINS.some((d) => d.value === param(sp.newDomain)) ? param(sp.newDomain) : "";
 
   const [rows, coverage, editRes] = await Promise.all([
     rpc<Row[]>("lms_admin_questions", {
@@ -103,20 +108,37 @@ async function Questions({ searchParams }: { searchParams: PageProps<"/admin/que
       />
 
       <div className="flex flex-col gap-4">
-        {editing ? (
-          <Panel title="edit question" note={<TextLink href={withParams("/admin/questions", keep)}>close</TextLink>}>
-            <QuestionForm question={editing} />
-          </Panel>
-        ) : (
-          <Panel>
-            <details>
-              <summary className="cursor-pointer text-[13px] text-subtle hover:text-foreground">add a question</summary>
-              <div className="mt-4">
-                <QuestionForm />
-              </div>
-            </details>
-          </Panel>
-        )}
+        {canWrite &&
+          (editing ? (
+            <Panel title="edit question" note={<TextLink href={withParams("/admin/questions", keep)}>close</TextLink>}>
+              <QuestionForm question={editing} />
+            </Panel>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Panel>
+                <details open={Boolean(newTopic)}>
+                  <summary className="cursor-pointer text-[13px] text-subtle hover:text-foreground">add a question</summary>
+                  <div className="mt-4">
+                    <QuestionForm
+                      question={
+                        newTopic
+                          ? { domain: newDomain || "backend", difficulty: "medium", text: "", topics: [newTopic] }
+                          : undefined
+                      }
+                    />
+                  </div>
+                </details>
+              </Panel>
+              <Panel>
+                <details>
+                  <summary className="cursor-pointer text-[13px] text-subtle hover:text-foreground">import questions from CSV</summary>
+                  <div className="mt-4">
+                    <QuestionImport />
+                  </div>
+                </details>
+              </Panel>
+            </div>
+          ))}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
           <Panel title="coverage" note="active questions per domain and level">
@@ -202,10 +224,10 @@ async function Questions({ searchParams }: { searchParams: PageProps<"/admin/que
                 <Td className="tabular-nums">{fmtNum(q.avg_score, 1)}</Td>
                 <Td>
                   <div className="flex flex-wrap justify-end gap-2">
-                    <TextLink href={withParams("/admin/questions", { ...keep, edit: q.id })}>edit</TextLink>
-                    <ActionButton url={`/api/admin/questions/${q.id}`} method="PATCH" body={{ status: q.status === "active" ? "retired" : "active" }}>
+                    {canWrite && <TextLink href={withParams("/admin/questions", { ...keep, edit: q.id })}>edit</TextLink>}
+                    {canWrite && <ActionButton url={`/api/admin/questions/${q.id}`} method="PATCH" body={{ status: q.status === "active" ? "retired" : "active" }}>
                       {q.status === "active" ? "retire" : "restore"}
-                    </ActionButton>
+                    </ActionButton>}
                   </div>
                 </Td>
               </Tr>

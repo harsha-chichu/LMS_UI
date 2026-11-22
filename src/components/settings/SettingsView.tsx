@@ -11,6 +11,7 @@ import { SegmentedPicker } from "@/components/common/SegmentedPicker";
 import { Avatar } from "@/components/common/UserBits";
 import { AccentPicker } from "@/components/profile/AccentPicker";
 import { FeedbackForm } from "@/components/feedback/FeedbackForm";
+import { EmailPrefs } from "@/components/settings/EmailPrefs";
 import { useSpeechSupported } from "@/hooks/useSpeechRecognition";
 import { DIFFICULTIES } from "@/lib/constants";
 import { passwordProblem } from "@/lib/credentials";
@@ -60,6 +61,7 @@ export function SettingsView() {
         <AccentPicker profile={profile} />
       </Section>
 
+      <EmailPrefs userId={profile.id} />
       <AdminLink />
       <AccountSection profile={profile} />
     </AppColumn>

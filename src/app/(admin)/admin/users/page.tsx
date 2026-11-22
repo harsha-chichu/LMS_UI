@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Badge, FilterBar, FilterSearch, FilterSelect, PageHeader, Pager, Panel, Skeleton, Table, Td, TextLink, Tr } from "@/components/admin/ui";
+import { Badge, FilterBar, FilterSearch, FilterSelect, PageHeader, Pager, Panel, Skeleton, Table, Td, TextLink, Tr, withParams } from "@/components/admin/ui";
 import { rpc } from "@/lib/admin/data";
 import { fmtDate, fmtNum } from "@/lib/admin/format";
 import { requireAdminPage } from "@/lib/admin/guard";
@@ -50,7 +50,18 @@ async function Users({ searchParams }: { searchParams: PageProps<"/admin/users">
 
   return (
     <>
-      <PageHeader title="users" description="search by email, name or user id." />
+      <PageHeader
+        title="users"
+        description="search by email, name or user id."
+        actions={
+          <a
+            href={withParams("/api/admin/users/export", { q, sort: sort === "joined" ? undefined : sort })}
+            className="inline-flex h-9 items-center rounded-full bg-surface-3 px-4 text-[13px] hover:bg-surface-2"
+          >
+            export CSV
+          </a>
+        }
+      />
       <Panel>
         <FilterBar action="/admin/users">
           <FilterSearch name="q" defaultValue={q} placeholder="email, name or id" />
@@ -82,6 +93,7 @@ async function Users({ searchParams }: { searchParams: PageProps<"/admin/users">
               <Td>
                 <div className="flex gap-1">
                   {u.role === "admin" && <Badge tone="brand">admin</Badge>}
+                  {u.role === "support" && <Badge tone="brand">support</Badge>}
                   {u.suspended_at && <Badge>suspended</Badge>}
                 </div>
               </Td>

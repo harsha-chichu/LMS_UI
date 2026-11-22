@@ -1,0 +1,77 @@
+import { logAdminAction } from "@/lib/admin/audit";
+import { db } from "@/lib/admin/data";
+import { unscoredIndexes } from "@/lib/admin/rescore";
+import { AdminError, adminRoute, check, idParam } from "@/lib/admin/route";
+import type { ReportHistory } from "@/lib/scoring";
+import { finalize, scoreLater } from "@/lib/sessions/engine";
+import type { Report, SessionRow } from "@/types";
+
+// Claude scoring per answer plus a new summary.
+export const maxDuration = 300;
+
+/** The report's own before/after data, so re-scoring keeps the original comparison. */
+function historyFromReport(row: SessionRow): ReportHistory {
+  const previousScores: Record<string, number | null> = {};
+  // Older reports may not carry per-question data.
+  row.report?.questions?.forEach((q, i) => {
+    const bankId = row.questions[i]?.bankId;
+    if (bankId && q.previousScore !== undefined) previousScores[bankId] = q.previousScore;
+  });
+  return { previous: row.report?.previous, previousScores };
+}
+
+/**
+ * Scores answers that couldn't be scored (eval agent and Claude both failed at
+ * the time) with Claude, then rebuilds the report of a finished session.
+ */
+export const POST = adminRoute<RouteContext<"/api/admin/sessions/[id]/rescore">>(async ({ admin, ctx }) => {
+  const id = await idParam(ctx);
+  const supabase = db();
+  const row = check(await supabase.from("lms_sessions").select("*").eq("id", id).maybeSingle()) as SessionRow | null;
+  if (!row) throw new AdminError("session not found", 404);
+  if (row.status === "abandoned") throw new AdminError("this session was abandoned; there's no report to fix");
+
+  const targets = unscoredIndexes(row.results ?? []);
+  if (!targets.length) throw new AdminError("every answer in this session already has a score");
+
+  const results = structuredClone(row.results);
+  for (const i of targets) {
+    results[i] = await scoreLater(row.config, { ...results[i], scoring: { engine: "claude", status: "pending" } });
+  }
+  const fixed = targets.filter((i) => results[i].evaluation && results[i].scoring?.status === "done");
+
+  let report: Report | null = row.report;
+  let finalResults = results;
+  if (row.status === "completed") {
+    const out = await finalize({ ...row, results }, historyFromReport(row));
+    finalResults = out.results;
+    report = out.report;
+  }
+
+  const update: Record<string, unknown> = { results: finalResults };
+  if (row.status === "completed" && report) Object.assign(update, { report, total: report.total });
+  check(await supabase.from("lms_sessions").update(update).eq("id", id).eq("status", row.status));
+
+  // Keep per-question stats (mastery, bank averages) in line with the new scores.
+  if (row.status === "completed") {
+    for (const i of fixed) {
+      const bankId = row.questions[i]?.bankId;
+      const score = finalResults[i].evaluation?.score;
+      if (bankId && typeof score === "number") {
+        await supabase
+          .from("lms_question_attempts")
+          .update({ score: Math.max(0, Math.min(10, Math.round(score * 10) / 10)), skipped: false })
+          .eq("session_id", id)
+          .eq("question_id", bankId);
+      }
+    }
+  }
+
+  await logAdminAction(admin.id, "session.rescore", { type: "session", id }, {
+    attempted: targets.length,
+    fixed: fixed.length,
+    total_before: row.total,
+    total_after: report?.total ?? null,
+  });
+  return { ok: true, attempted: targets.length, fixed: fixed.length, total: report?.total ?? null };
+});

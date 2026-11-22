@@ -1,28 +1,39 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { BudgetForm, RateLimitsForm } from "@/components/admin/ConfigForms";
 import { SettingToggle } from "@/components/admin/SettingToggle";
 import { KpiGrid, KpiTile, PageHeader, Panel, Skeleton, Status, Table, Td, TextLink, Tr } from "@/components/admin/ui";
 import { pingAgent } from "@/lib/agent/client";
-import { getAppSettings, rpc } from "@/lib/admin/data";
+import { mfaRequired } from "@/lib/admin/access";
+import { db, getAppSettings, rpc } from "@/lib/admin/data";
 import { parseAdminEmails } from "@/lib/admin/emails";
-import { fmtBytes, fmtDateTime, fmtNum } from "@/lib/admin/format";
+import { fmtBytes, fmtDateTime, fmtNum, fmtUsd } from "@/lib/admin/format";
 import { requireAdminPage } from "@/lib/admin/guard";
 import { nowMs } from "@/lib/admin/range";
-import { LIMITS } from "@/lib/rate-limit";
+import type { BudgetSetting } from "@/lib/admin/session-block";
+import { getSpendToday } from "@/lib/admin/spend";
+import { LIMIT_LABELS, LIMIT_NAMES, type LimitName, resolveLimit } from "@/lib/limits";
 
 export const metadata: Metadata = { title: "system" };
 
 type DbStats = { db_bytes: number; tables: Record<string, number> };
 type RateRow = { user_id: string; email: string | null; bucket: string; window_start: string; count: number };
 
+/** Env settings by name; `required` ones show red when missing, the rest grey (the feature is just off). */
 const ENV_VARS = [
-  ["NEXT_PUBLIC_SUPABASE_URL", "Supabase project URL"],
-  ["SUPABASE_SERVICE_ROLE_KEY", "server writes and this dashboard (or SUPABASE_SECRET_KEY)"],
-  ["ANTHROPIC_API_KEY", "question generation, fallback scoring, reports"],
-  ["EVAL_AGENT_URL", "eval agent"],
-  ["EVAL_AGENT_TOKEN", "eval agent auth"],
-  ["DEEPGRAM_API_KEY", "live transcription"],
-  ["ADMIN_EMAILS", "who can open this dashboard"],
+  ["NEXT_PUBLIC_SUPABASE_URL", "Supabase project URL", true],
+  ["SUPABASE_SERVICE_ROLE_KEY", "server writes and this dashboard (or SUPABASE_SECRET_KEY)", true],
+  ["ANTHROPIC_API_KEY", "question generation, fallback scoring, reports", true],
+  ["ADMIN_EMAILS", "who can open this dashboard", true],
+  ["CRON_SECRET", "scheduled health checks: alerts and the budget alert", true],
+  ["EVAL_AGENT_URL", "eval agent", false],
+  ["EVAL_AGENT_TOKEN", "eval agent auth", false],
+  ["DEEPGRAM_API_KEY", "live transcription", false],
+  ["RESEND_API_KEY", "sending email (alerts, /admin/email)", false],
+  ["EMAIL_FROM", "sender address for emails", false],
+  ["ALERT_EMAILS", "who gets alert emails (else ADMIN_EMAILS)", false],
+  ["ALERT_WEBHOOK_URL", "Slack or Discord channel for alerts", false],
+  ["NEXT_PUBLIC_APP_URL", "links in emails and alerts", false],
 ] as const;
 
 export default function SystemPage() {
@@ -34,13 +45,16 @@ export default function SystemPage() {
 }
 
 async function System() {
-  await requireAdminPage();
+  const { access } = await requireAdminPage();
+  const canWrite = access === "admin";
   const started = nowMs();
-  const [dbStats, agent, settings, rate] = await Promise.all([
+  const [dbStats, agent, settings, rate, extra, spent] = await Promise.all([
     rpc<DbStats>("lms_admin_db_stats").catch((e: Error) => ({ error: e.message }) as const),
     pingAgent(),
     getAppSettings(),
     rpc<RateRow[]>("lms_admin_rate_limit_top", { p_limit: 20 }).catch(() => [] as RateRow[]),
+    db().from("lms_app_settings").select("key, value").in("key", ["rate_limits", "budget"]),
+    getSpendToday().catch(() => null),
   ]);
   const dbMs = nowMs() - started;
   const dbOk = !("error" in dbStats);
@@ -48,7 +62,12 @@ async function System() {
     name === "SUPABASE_SERVICE_ROLE_KEY"
       ? Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)
       : Boolean(process.env[name]);
-  const atLimit = rate.filter((r) => r.count >= (LIMITS[r.bucket as keyof typeof LIMITS]?.limit ?? Infinity));
+  const configured = (extra.data?.find((r) => r.key === "rate_limits")?.value ?? {}) as Partial<Record<string, number>>;
+  const budget = (extra.data?.find((r) => r.key === "budget")?.value ?? {}) as BudgetSetting;
+  const limitOf = (bucket: string) =>
+    (LIMIT_NAMES as string[]).includes(bucket) ? resolveLimit(bucket as LimitName, "", configured, []) : Infinity;
+  const atLimit = rate.filter((r) => r.count >= limitOf(r.bucket));
+  const dailyUsd = Number(budget.daily_usd) || 0;
 
   return (
     <>
@@ -70,6 +89,16 @@ async function System() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Panel title="switches" note="apply to every user immediately">
+            {!canWrite ? (
+              <ul className="flex flex-col gap-2 text-[13px]">
+                <li>
+                  <Status tone={settings.maintenance.enabled ? "warning" : "good"}>maintenance mode: {settings.maintenance.enabled ? "on" : "off"}</Status>
+                </li>
+                <li>
+                  <Status tone={settings.sessions_paused.enabled ? "warning" : "good"}>new sessions paused: {settings.sessions_paused.enabled ? "yes" : "no"}</Status>
+                </li>
+              </ul>
+            ) : (
             <div className="flex flex-col gap-5">
               <SettingToggle
                 settingKey="sessions_paused"
@@ -86,19 +115,70 @@ async function System() {
                 message={settings.maintenance.message}
               />
             </div>
+            )}
           </Panel>
 
           <Panel title="configuration" note="names only — values are never shown">
             <ul className="flex flex-col gap-2.5">
-              {ENV_VARS.map(([name, what]) => (
+              {ENV_VARS.map(([name, what, required]) => (
                 <li key={name} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-                  <Status tone={isSet(name) ? "good" : name === "DEEPGRAM_API_KEY" || name.startsWith("EVAL_AGENT") ? "neutral" : "critical"}>
+                  <Status tone={isSet(name) ? "good" : required ? "critical" : "neutral"}>
                     <code className="text-[12px]">{name}</code>
                   </Status>
                   <span className="text-[12px] text-subtle">{what}</span>
                 </li>
               ))}
+              <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+                <Status tone={mfaRequired() ? "good" : "warning"}>
+                  <code className="text-[12px]">ADMIN_MFA_REQUIRED</code>
+                </Status>
+                <span className="text-[12px] text-subtle">two-factor sign-in for admins: {mfaRequired() ? "required" : "OFF"}</span>
+              </li>
             </ul>
+          </Panel>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Panel title="daily AI budget" note="estimated Claude spend, resets at midnight UTC">
+            <div className="mb-4">
+              <div className="flex items-baseline justify-between text-[13px]">
+                <span>
+                  today: <strong className="tabular-nums">{spent == null ? "—" : fmtUsd(spent)}</strong>
+                  {budget.enabled && dailyUsd > 0 && <span className="text-subtle"> of {fmtUsd(dailyUsd)}</span>}
+                </span>
+                <span className="text-[12px] text-subtle">{budget.enabled && dailyUsd > 0 ? "budget on" : "budget off"}</span>
+              </div>
+              {budget.enabled && dailyUsd > 0 && spent != null && (
+                <div className="mt-2 h-2 rounded-full bg-track" role="meter" aria-valuemin={0} aria-valuemax={dailyUsd} aria-valuenow={spent} aria-label="spend today">
+                  <div className="h-2 rounded-full bg-brand" style={{ width: `${Math.min(100, (spent / dailyUsd) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+            {canWrite ? (
+              <BudgetForm enabled={Boolean(budget.enabled)} dailyUsd={dailyUsd} />
+            ) : (
+              <p className="text-[12px] text-subtle">read-only</p>
+            )}
+            <p className="mt-3 text-[12px] text-faint">
+              When today&apos;s spend reaches the limit, new sessions pause until midnight UTC (sessions already running finish).
+              Alerts go out at 80% and 100%.
+            </p>
+          </Panel>
+
+          <Panel title="rate limits" note="per user; changes apply within a minute">
+            {canWrite ? (
+              <RateLimitsForm current={Object.fromEntries(LIMIT_NAMES.map((n) => [n, resolveLimit(n, "", configured, [])]))} />
+            ) : (
+              <Table head={["limit", "value"]}>
+                {LIMIT_NAMES.map((n) => (
+                  <Tr key={n}>
+                    <Td>{LIMIT_LABELS[n]}</Td>
+                    <Td className="tabular-nums">{resolveLimit(n, "", configured, [])}</Td>
+                  </Tr>
+                ))}
+              </Table>
+            )}
+            <p className="mt-3 text-[12px] text-faint">Give one user a temporary exception from their page in users.</p>
           </Panel>
         </div>
 
@@ -123,7 +203,7 @@ async function System() {
           <Panel title="busiest rate-limit buckets" note={`last 24h · ${atLimit.length} at their limit`}>
             <Table head={["user", "bucket", "window", "used"]} empty={!rate.length}>
               {rate.map((r) => {
-                const limit = LIMITS[r.bucket as keyof typeof LIMITS]?.limit;
+                const limit = Number.isFinite(limitOf(r.bucket)) ? limitOf(r.bucket) : undefined;
                 return (
                   <Tr key={`${r.user_id}-${r.bucket}-${r.window_start}`}>
                     <Td>

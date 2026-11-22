@@ -1,3 +1,4 @@
+import { logServerError } from "@/lib/admin/errors";
 import { recordUsage } from "@/lib/admin/usage";
 import { requireUser } from "@/lib/auth";
 import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
@@ -38,6 +39,7 @@ export async function POST() {
     return Response.json({ token: access_token }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     console.error(err);
+    logServerError("speech-api", err, { route: "/api/speech/token", userId: auth.user.id });
     if (started) {
       recordUsage({
         kind: "deepgram",

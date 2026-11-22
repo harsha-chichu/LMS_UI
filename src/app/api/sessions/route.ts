@@ -1,11 +1,12 @@
 import { after } from "next/server";
-import { newSessionBlock } from "@/lib/admin/session-block";
+import { SESSION_BLOCK_KEYS, activeBudget, newSessionBlock } from "@/lib/admin/session-block";
+import { getSpendToday } from "@/lib/admin/spend";
 import { requireUser } from "@/lib/auth";
 import { practiceRequestSchema, savedTestRequestSchema, sessionConfigSchema } from "@/lib/llm/schemas";
 import { type Attempt, PRACTICE_COUNT, unsolvedQuestionIds } from "@/lib/mastery";
 import { pickQuestions } from "@/lib/questions/pick";
 import { errorResponse } from "@/lib/sessions/store";
-import { LIMITS, rateLimited, takeRateLimit } from "@/lib/rate-limit";
+import { limitFor, rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { serverTimer } from "@/lib/timing";
 import type { Preferences, Question, SessionConfig } from "@/types";
@@ -23,21 +24,20 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const { supabase, user } = auth;
 
-  // Maintenance mode or "pause new sessions" (both set from /admin/system) stop
-  // new sessions; the rest of the app keeps working.
-  const { data: settings } = await supabase
-    .from("lms_app_settings")
-    .select("key, value")
-    .in("key", ["maintenance", "sessions_paused"]);
-  const blocked = newSessionBlock(settings);
+  // Maintenance mode, "pause new sessions" and the daily AI budget (all set from
+  // /admin/system) stop new sessions; the rest of the app keeps working.
+  const { data: settings } = await supabase.from("lms_app_settings").select("key, value").in("key", SESSION_BLOCK_KEYS);
+  // Spend is only looked up when a budget is on; if that lookup fails, don't block.
+  const spent = activeBudget(settings) ? await getSpendToday().catch(() => null) : null;
+  const blocked = newSessionBlock(settings, spent);
   if (blocked) return Response.json({ error: blocked }, { status: 503 });
 
   const body: unknown = await request.json().catch(() => null);
   // Taken atomically in Postgres, so parallel requests can't all slip under the limit.
   // The retry / practice / saved paths take it only once the request is known to be valid.
   const underLimit = () => takeRateLimit(user.id, "session");
-  const limitReached = () =>
-    rateLimited(`you've reached today's limit of ${LIMITS.session.limit} sessions — come back tomorrow.`);
+  const limitReached = async () =>
+    rateLimited(`you've reached today's limit of ${await limitFor(user.id, "session")} sessions — come back tomorrow.`);
 
   // "try again": same settings and questions as one of the user's finished sessions.
   const retryOf = (body as { retryOf?: unknown } | null)?.retryOf;

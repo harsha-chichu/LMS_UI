@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ColumnChart, ShareBars } from "@/components/admin/charts";
+import { ColumnChart, FunnelBars, ShareBars } from "@/components/admin/charts";
 import { KpiGrid, KpiTile, PageHeader, Panel, RangeTabs, Skeleton, Status, Table, Td, TextLink, Tr } from "@/components/admin/ui";
 import { domainShort } from "@/lib/constants";
-import { rpc } from "@/lib/admin/data";
+import { db, rpc } from "@/lib/admin/data";
 import { fmtNum, fmtPct } from "@/lib/admin/format";
 import { requireAdminPage } from "@/lib/admin/guard";
 import { nowMs, parseRange } from "@/lib/admin/range";
@@ -40,6 +40,7 @@ type Daily = {
 type DomainRow = { domain: string; difficulty: string; sessions: number; completed: number; avg_total: number | null };
 type Retention = { week: string; signups: number; d1: number; d7: number; d30: number };
 type UsageOp = { kind: string; operation: string; calls: number; errors: number };
+type Funnel = { signed_up: number; started: number; completed: number; returned: number };
 
 export default function OverviewPage({ searchParams }: PageProps<"/admin">) {
   return (
@@ -57,7 +58,8 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/admin">["s
   const { days, from, to } = parseRange(sp.range);
   const range = { p_from: from.toISOString(), p_to: to.toISOString() };
 
-  const [o, daily, domains, retention, ops] = await Promise.all([
+  const supabase = db();
+  const [o, daily, domains, retention, ops, funnel, openAlerts, unscored, newErrors] = await Promise.all([
     rpc<Overview>("lms_admin_overview", range),
     rpc<Daily[]>("lms_admin_daily", range),
     rpc<DomainRow[]>("lms_admin_domain_breakdown", range),
@@ -66,6 +68,15 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/admin">["s
       p_from: new Date(nowMs() - 86_400_000).toISOString(),
       p_to: new Date(nowMs() + 60_000).toISOString(),
     }),
+    rpc<Funnel>("lms_admin_funnel", range),
+    supabase.from("lms_alerts").select("id, kind, severity, message").is("resolved_at", null),
+    supabase
+      .from("lms_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed")
+      .gte("created_at", from.toISOString())
+      .contains("results", [{ scoring: { status: "failed" } }]),
+    rpc<number>("lms_admin_new_error_groups", { p_since: new Date(nowMs() - 86_400_000).toISOString() }),
   ]);
 
   const byDomain = new Map<string, { sessions: number; completed: number }>();
@@ -82,6 +93,13 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/admin">["s
   const completion = o.sessions_started ? o.sessions_completed / o.sessions_started : 0;
 
   const attention = [
+    ...(openAlerts.data ?? []).map((a) => ({ href: "/admin/alerts", text: a.message, tone: a.severity === "critical" ? ("critical" as const) : ("warning" as const) })),
+    (unscored.count ?? 0) > 0 && {
+      href: "/admin/sessions?status=unscored",
+      text: `${unscored.count} completed sessions have answers that couldn't be scored`,
+      tone: "warning" as const,
+    },
+    Number(newErrors) > 0 && { href: "/admin/errors", text: `${newErrors} new kinds of server error in the last 24h`, tone: "warning" as const },
     o.feedback_new > 0 && { href: "/admin/feedback?status=new", text: `${o.feedback_new} new feedback`, tone: "warning" as const },
     o.stuck_sessions > 0 && { href: "/admin/sessions?status=stuck", text: `${o.stuck_sessions} stuck sessions (in progress > 2h)`, tone: "warning" as const },
     errorRate > 0.05 && { href: "/admin/ai", text: `${fmtPct(errors24, calls24)} of AI calls failed in the last 24h`, tone: "critical" as const },
@@ -141,6 +159,17 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/admin">["s
             />
           </Panel>
         </div>
+
+        <Panel title="funnel" note={`people who signed up in the last ${days} days`}>
+          <FunnelBars
+            steps={[
+              { label: "signed up", value: Number(funnel.signed_up) },
+              { label: "started a session", value: Number(funnel.started) },
+              { label: "finished a session", value: Number(funnel.completed) },
+              { label: "came back another day", value: Number(funnel.returned) },
+            ]}
+          />
+        </Panel>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Panel title="sessions by domain" note="completed in brackets">

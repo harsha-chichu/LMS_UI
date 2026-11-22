@@ -37,6 +37,8 @@ async function Sessions({ searchParams }: { searchParams: PageProps<"/admin/sess
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   if (status === "stuck") {
     query = query.eq("status", "in_progress").lt("created_at", new Date(nowMs() - STUCK_MS).toISOString());
+  } else if (status === "unscored") {
+    query = query.neq("status", "abandoned").contains("results", [{ scoring: { status: "failed" } }]);
   } else if (["in_progress", "completed", "abandoned"].includes(status)) {
     query = query.eq("status", status);
   }
@@ -72,6 +74,7 @@ async function Sessions({ searchParams }: { searchParams: PageProps<"/admin/sess
             options={[
               { value: "in_progress", label: "in progress" },
               { value: "stuck", label: "stuck (> 2h)" },
+              { value: "unscored", label: "has unscored answers" },
               { value: "completed", label: "completed" },
               { value: "abandoned", label: "abandoned" },
             ]}

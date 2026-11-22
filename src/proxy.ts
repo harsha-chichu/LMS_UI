@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
 // /admin is only checked for sign-in here; the admin check itself runs on the server for every page and API.
-const PROTECTED = ["/setup", "/session", "/report", "/profile", "/settings", "/friends", "/reset-password", "/admin"];
+const PROTECTED = ["/setup", "/session", "/report", "/profile", "/settings", "/friends", "/reset-password", "/admin", "/admin-mfa"];
 const AUTH_ONLY_SIGNED_OUT = ["/login", "/signup"];
 
 const matches = (path: string, prefixes: string[]) =>
