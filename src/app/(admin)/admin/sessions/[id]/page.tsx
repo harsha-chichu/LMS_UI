@@ -56,7 +56,7 @@ async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[i
                 <ActionButton
                   url={`/api/admin/sessions/${s.id}/rescore`}
                   variant="primary"
-                  confirm={`Score ${unscored.length} unscored answer${unscored.length === 1 ? "" : "s"} with Claude${s.status === "completed" ? " and rebuild the report" : ""}? This can take a minute.`}
+                  confirm={`Score ${unscored.length} unscored answer${unscored.length === 1 ? "" : "s"} with the eval agent (Claude as backup)${s.status === "completed" ? " and rebuild the report" : ""}? This can take a minute or two.`}
                 >
                   re-score {unscored.length} unscored
                 </ActionButton>

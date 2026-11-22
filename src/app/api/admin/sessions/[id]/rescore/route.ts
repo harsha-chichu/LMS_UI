@@ -3,10 +3,10 @@ import { db } from "@/lib/admin/data";
 import { unscoredIndexes } from "@/lib/admin/rescore";
 import { AdminError, adminRoute, check, idParam } from "@/lib/admin/route";
 import type { ReportHistory } from "@/lib/scoring";
-import { finalize, scoreLater } from "@/lib/sessions/engine";
+import { finalize, rescoreAnswer } from "@/lib/sessions/engine";
 import type { Report, SessionRow } from "@/types";
 
-// Claude scoring per answer plus a new summary.
+// Up to 90s per answer with the eval agent (in parallel), Claude as backup, plus a new summary.
 export const maxDuration = 300;
 
 /** The report's own before/after data, so re-scoring keeps the original comparison. */
@@ -21,8 +21,10 @@ function historyFromReport(row: SessionRow): ReportHistory {
 }
 
 /**
- * Scores answers that couldn't be scored (eval agent and Claude both failed at
- * the time) with Claude, then rebuilds the report of a finished session.
+ * Scores answers that couldn't be scored at the time, the way a live session
+ * does (eval agent first, Claude as backup), then rebuilds the report of a
+ * finished session. Answers that still can't be scored come back as an error
+ * saying why, and keep that reason on the session.
  */
 export const POST = adminRoute<RouteContext<"/api/admin/sessions/[id]/rescore">>(async ({ admin, ctx }) => {
   const id = await idParam(ctx);
@@ -35,9 +37,12 @@ export const POST = adminRoute<RouteContext<"/api/admin/sessions/[id]/rescore">>
   if (!targets.length) throw new AdminError("every answer in this session already has a score");
 
   const results = structuredClone(row.results);
-  for (const i of targets) {
-    results[i] = await scoreLater(row.config, { ...results[i], scoring: { engine: "claude", status: "pending" } });
-  }
+  // Side by side, like a session finishing: one at a time could outlast the request.
+  await Promise.all(
+    targets.map(async (i) => {
+      results[i] = await rescoreAnswer(row.config, results[i], row.user_id);
+    }),
+  );
   const fixed = targets.filter((i) => results[i].evaluation && results[i].scoring?.status === "done");
 
   let report: Report | null = row.report;
@@ -73,5 +78,9 @@ export const POST = adminRoute<RouteContext<"/api/admin/sessions/[id]/rescore">>
     total_before: row.total,
     total_after: report?.total ?? null,
   });
+  if (!fixed.length) {
+    const why = targets.map((i) => finalResults[i]?.scoring?.error).find(Boolean) ?? "unknown error";
+    throw new AdminError(`couldn't score ${targets.length === 1 ? "the answer" : "any of the answers"}: ${why}`, 502);
+  }
   return { ok: true, attempted: targets.length, fixed: fixed.length, total: report?.total ?? null };
 });

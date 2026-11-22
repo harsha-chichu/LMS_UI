@@ -48,13 +48,15 @@ async function System() {
   const { access } = await requireAdminPage();
   const canWrite = access === "admin";
   const started = nowMs();
-  const [dbStats, agent, settings, rate, extra, spent] = await Promise.all([
+  const [dbStats, agent, settings, rate, extra, spent, lastClaude] = await Promise.all([
     rpc<DbStats>("lms_admin_db_stats").catch((e: Error) => ({ error: e.message }) as const),
     pingAgent(),
     getAppSettings(),
     rpc<RateRow[]>("lms_admin_rate_limit_top", { p_limit: 20 }).catch(() => [] as RateRow[]),
     db().from("lms_app_settings").select("key, value").in("key", ["rate_limits", "budget"]),
     getSpendToday().catch(() => null),
+    // The newest Claude call says more than "a key is set": it shows whether Claude accepts it.
+    db().from("lms_usage_events").select("ok, error, created_at").eq("kind", "claude").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const dbMs = nowMs() - started;
   const dbOk = !("error" in dbStats);
@@ -68,6 +70,15 @@ async function System() {
     (LIMIT_NAMES as string[]).includes(bucket) ? resolveLimit(bucket as LimitName, "", configured, []) : Infinity;
   const atLimit = rate.filter((r) => r.count >= limitOf(r.bucket));
   const dailyUsd = Number(budget.daily_usd) || 0;
+  const last = lastClaude.data as { ok: boolean; error: string | null; created_at: string } | null;
+  const keyRejected = Boolean(last && !last.ok && /401|authentication_error|x-api-key/i.test(last.error ?? ""));
+  const claudeState: { value: string; tone: "good" | "warning" | "critical"; note?: string } = !isSet("ANTHROPIC_API_KEY")
+    ? { value: "no key", tone: "warning", note: "backup scoring and new questions are off" }
+    : keyRejected
+      ? { value: "key rejected", tone: "critical", note: `Claude said the API key is invalid (${fmtDateTime(last!.created_at)}). Replace ANTHROPIC_API_KEY in Vercel and redeploy.` }
+      : last && !last.ok
+        ? { value: "failing", tone: "warning", note: (last.error ?? "").slice(0, 80) }
+        : { value: "key set", tone: "good", note: last ? `last call ok · ${fmtDateTime(last.created_at)}` : "not called yet" };
 
   return (
     <>
@@ -81,7 +92,17 @@ async function System() {
             tone={!agent.configured ? "neutral" : agent.reachable ? "good" : "critical"}
             sub={!agent.configured ? "scoring uses claude only" : agent.reachable ? `HTTP ${agent.status} · ${agent.ms} ms` : agent.error}
           />
-          <KpiTile label="claude" value={isSet("ANTHROPIC_API_KEY") ? "key set" : "no key"} tone={isSet("ANTHROPIC_API_KEY") ? "good" : "critical"} sub={<TextLink href="/admin/ai">error rates →</TextLink>} />
+          <KpiTile
+            label="claude (backup scorer)"
+            value={claudeState.value}
+            tone={claudeState.tone}
+            sub={
+              <>
+                {claudeState.note && <span className="block">{claudeState.note}</span>}
+                <TextLink href="/admin/ai">error rates →</TextLink>
+              </>
+            }
+          />
           <KpiTile label="deepgram" value={isSet("DEEPGRAM_API_KEY") ? "key set" : "off"} tone={isSet("DEEPGRAM_API_KEY") ? "good" : "neutral"} sub={isSet("DEEPGRAM_API_KEY") ? undefined : "browser speech recognition"} />
           <KpiTile label="env admins" value={fmtNum(parseAdminEmails(process.env.ADMIN_EMAILS).size)} sub="from ADMIN_EMAILS" />
           <KpiTile label="deploy" value={process.env.VERCEL_ENV ?? "local"} sub={process.env.VERCEL_GIT_COMMIT_SHA ? `commit ${process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)}` : undefined} />
