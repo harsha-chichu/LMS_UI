@@ -33,4 +33,4 @@ export const GET = adminRoute<RouteContext<"/api/admin/users/[id]/export">>(asyn
       "cache-control": "no-store",
     },
   });
-});
+}, { write: false });

@@ -26,4 +26,4 @@ export const GET = adminRoute(async ({ request }) => {
     }),
   );
   return csvResponse(`feedback-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-});
+}, { write: false });

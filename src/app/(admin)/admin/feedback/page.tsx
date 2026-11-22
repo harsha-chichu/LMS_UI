@@ -21,7 +21,8 @@ export default function FeedbackPage({ searchParams }: PageProps<"/admin/feedbac
 }
 
 async function Feedback({ searchParams }: { searchParams: PageProps<"/admin/feedback">["searchParams"] }) {
-  await requireAdminPage();
+  const { access } = await requireAdminPage();
+  const canWrite = access === "admin";
   const sp = await searchParams;
   const status = param(sp.status);
   const category = param(sp.category);
@@ -97,7 +98,11 @@ async function Feedback({ searchParams }: { searchParams: PageProps<"/admin/feed
                   <p className="leading-relaxed whitespace-pre-wrap">{f.message}</p>
                 </Td>
                 <Td>
-                  <FeedbackTriage id={f.id} status={f.status} note={f.admin_note} />
+                  {canWrite ? (
+                    <FeedbackTriage id={f.id} status={f.status} note={f.admin_note} />
+                  ) : (
+                    <span className="text-subtle">{f.status}{f.admin_note ? ` — ${f.admin_note}` : ""}</span>
+                  )}
                 </Td>
               </Tr>
             );

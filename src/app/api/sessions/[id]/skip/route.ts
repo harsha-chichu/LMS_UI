@@ -36,6 +36,6 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     }
     return Response.json({ result });
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, "/api/sessions/[id]/skip");
   }
 }

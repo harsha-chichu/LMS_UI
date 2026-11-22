@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ActionButton } from "@/components/admin/actions";
+import { LimitOverrideForm } from "@/components/admin/LimitOverrideForm";
+import { LIMIT_LABELS, LIMIT_NAMES, LIMITS } from "@/lib/limits";
 import { Badge, Facts, KpiGrid, KpiTile, PageHeader, Panel, Skeleton, Table, Td, TextLink, Tr } from "@/components/admin/ui";
 import { domainShort } from "@/lib/constants";
 import { db, isUuid, rpc } from "@/lib/admin/data";
@@ -23,12 +25,13 @@ export default function UserPage({ params }: PageProps<"/admin/users/[id]">) {
 }
 
 async function UserDetail({ params }: { params: PageProps<"/admin/users/[id]">["params"] }) {
-  const me = await requireAdminPage();
+  const { user: me, access } = await requireAdminPage();
+  const canWrite = access === "admin";
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
   const supabase = db();
-  const [profileRes, authRows, sessionsRes, feedbackRes, attemptsRes, savedRes, friendsRes, usageRes] = await Promise.all([
+  const [profileRes, authRows, sessionsRes, feedbackRes, attemptsRes, savedRes, friendsRes, usageRes, overridesRes] = await Promise.all([
     supabase.from("lms_profiles").select("id, name, role, suspended_at, suspended_reason, created_at, preferences").eq("id", id).maybeSingle(),
     rpc<{ email: string; last_sign_in_at: string | null; created_at: string }[]>("lms_admin_user_email", { p_id: id }),
     supabase
@@ -47,7 +50,13 @@ async function UserDetail({ params }: { params: PageProps<"/admin/users/[id]">["
       .eq("user_id", id)
       .gte("created_at", new Date(nowMs() - 30 * 86_400_000).toISOString())
       .limit(5000),
+    supabase
+      .from("lms_rate_limit_overrides")
+      .select("bucket, max_count, expires_at")
+      .eq("user_id", id)
+      .gt("expires_at", new Date(nowMs()).toISOString()),
   ]);
+  const overrides = (overridesRes.data ?? []) as { bucket: string; max_count: number; expires_at: string }[];
   for (const r of [profileRes, sessionsRes, feedbackRes, attemptsRes, savedRes, friendsRes, usageRes]) {
     if (r.error) throw new Error(r.error.message);
   }
@@ -80,6 +89,7 @@ async function UserDetail({ params }: { params: PageProps<"/admin/users/[id]">["
         actions={
           <div className="flex flex-wrap gap-2">
             {profile.role === "admin" && <Badge tone="brand">admin</Badge>}
+            {profile.role === "support" && <Badge tone="brand">support</Badge>}
             {envAdmin && <Badge tone="brand">admin via ADMIN_EMAILS</Badge>}
             {profile.suspended_at && <Badge>suspended</Badge>}
           </div>
@@ -123,6 +133,14 @@ async function UserDetail({ params }: { params: PageProps<"/admin/users/[id]">["
             />
           </Panel>
 
+          {!canWrite ? (
+            <Panel title="actions">
+              <p className="text-[13px] text-subtle">Your access is read-only (support). Ask an admin to change this account.</p>
+              <a href={`${base}/export`} className="mt-4 inline-flex h-9 items-center rounded-full bg-surface-3 px-4 text-[13px] hover:bg-surface-2">
+                export data (JSON)
+              </a>
+            </Panel>
+          ) : (
           <Panel title="actions" note={isSelf ? "you can't change your own account here" : undefined}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2">
@@ -141,18 +159,24 @@ async function UserDetail({ params }: { params: PageProps<"/admin/users/[id]">["
                     suspend
                   </ActionButton>
                 )}
-                {profile.role === "admin" ? (
-                  <ActionButton url={`${base}/role`} body={{ role: "user" }} confirm="Remove admin access?" disabled={isSelf}>
-                    remove admin
+                {profile.role !== "admin" && (
+                  <ActionButton url={`${base}/role`} body={{ role: "admin" }} confirm="Give this user full admin access?" disabled={isSelf}>
+                    make admin
                   </ActionButton>
-                ) : (
+                )}
+                {profile.role !== "support" && (
                   <ActionButton
                     url={`${base}/role`}
-                    body={{ role: "admin" }}
-                    confirm="Give this user full admin access?"
+                    body={{ role: "support" }}
+                    confirm="Give this user read-only access to the admin dashboard?"
                     disabled={isSelf}
                   >
-                    make admin
+                    make support
+                  </ActionButton>
+                )}
+                {profile.role !== "user" && (
+                  <ActionButton url={`${base}/role`} body={{ role: "user" }} confirm={`Remove ${profile.role} access?`} disabled={isSelf}>
+                    remove {profile.role} access
                   </ActionButton>
                 )}
               </div>
@@ -188,7 +212,36 @@ async function UserDetail({ params }: { params: PageProps<"/admin/users/[id]">["
               )}
             </div>
           </Panel>
+          )}
         </div>
+
+        <Panel title="rate limits" note="a temporary override replaces the normal limit for this user">
+          <Table head={["limit", "normal", "override", "expires", ""]}>
+            {LIMIT_NAMES.map((name) => {
+              const o = overrides.find((x) => x.bucket === name);
+              return (
+                <Tr key={name}>
+                  <Td>{LIMIT_LABELS[name]}</Td>
+                  <Td className="tabular-nums">{LIMITS[name].limit}</Td>
+                  <Td className="tabular-nums">{o ? o.max_count : "—"}</Td>
+                  <Td className="whitespace-nowrap">{o ? fmtDateTime(o.expires_at) : "—"}</Td>
+                  <Td>
+                    {o && canWrite && (
+                      <ActionButton url={`${base}/limits`} method="DELETE" body={{ bucket: name }}>
+                        remove
+                      </ActionButton>
+                    )}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </Table>
+          {canWrite && (
+            <div className="mt-4 border-t border-line pt-4">
+              <LimitOverrideForm userId={id} />
+            </div>
+          )}
+        </Panel>
 
         <Panel title="sessions" note="latest 100">
           <Table head={["started", "domain", "level", "mode", "status", "score"]} empty={!sessions.length}>

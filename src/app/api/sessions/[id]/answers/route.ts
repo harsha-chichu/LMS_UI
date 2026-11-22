@@ -64,6 +64,6 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     if (performance.now() - started > 5000) console.info(`[answers] slow submit: ${timer.header()}`);
     return Response.json({ result }, { headers: { "Server-Timing": timer.header() } });
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, "/api/sessions/[id]/answers");
   }
 }

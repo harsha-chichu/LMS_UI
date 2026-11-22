@@ -7,6 +7,7 @@ import { domainLabel } from "@/lib/constants";
 import { db, emailsFor, isUuid } from "@/lib/admin/data";
 import { fmtDateTime } from "@/lib/admin/format";
 import { requireAdminPage } from "@/lib/admin/guard";
+import { unscoredIndexes } from "@/lib/admin/rescore";
 import type { QuestionResult, Report, SessionConfig, Question } from "@/types";
 
 export const metadata: Metadata = { title: "session" };
@@ -20,7 +21,8 @@ export default function SessionPage({ params }: PageProps<"/admin/sessions/[id]"
 }
 
 async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[id]">["params"] }) {
-  await requireAdminPage();
+  const { access } = await requireAdminPage();
+  const canWrite = access === "admin";
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
@@ -40,6 +42,7 @@ async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[i
     completed_at: string | null;
   };
   const who = (await emailsFor([s.user_id])).get(s.user_id);
+  const unscored = unscoredIndexes(s.results ?? []);
 
   return (
     <>
@@ -47,14 +50,27 @@ async function SessionDetail({ params }: { params: PageProps<"/admin/sessions/[i
         title={`${domainLabel(s.config.domain)} · ${s.config.difficulty}`}
         description={`session ${s.id}`}
         actions={
-          s.status === "in_progress" ? (
-            <ActionButton
-              url={`/api/admin/sessions/${s.id}/abandon`}
-              confirm="Mark this session as abandoned? The user won't be able to continue it."
-              variant="danger"
-            >
-              force abandon
-            </ActionButton>
+          canWrite ? (
+            <>
+              {unscored.length > 0 && s.status !== "abandoned" && (
+                <ActionButton
+                  url={`/api/admin/sessions/${s.id}/rescore`}
+                  variant="primary"
+                  confirm={`Score ${unscored.length} unscored answer${unscored.length === 1 ? "" : "s"} with Claude${s.status === "completed" ? " and rebuild the report" : ""}? This can take a minute.`}
+                >
+                  re-score {unscored.length} unscored
+                </ActionButton>
+              )}
+              {s.status === "in_progress" && (
+                <ActionButton
+                  url={`/api/admin/sessions/${s.id}/abandon`}
+                  confirm="Mark this session as abandoned? The user won't be able to continue it."
+                  variant="danger"
+                >
+                  force abandon
+                </ActionButton>
+              )}
+            </>
           ) : undefined
         }
       />

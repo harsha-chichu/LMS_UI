@@ -56,3 +56,56 @@ export const settingSchema = z.object({
   enabled: z.boolean(),
   message: z.string().trim().max(300).default(""),
 });
+
+const nonNegInt = z.number().int().min(0).max(100000);
+
+/** Values for lms_app_settings keys edited from /admin/system and /admin/alerts. */
+export const configSchema = z.discriminatedUnion("key", [
+  z.object({
+    key: z.literal("alerts"),
+    value: z.object({
+      enabled: z.boolean(),
+      aiErrorRate: z.number().min(0.01).max(1),
+      aiMinCalls: nonNegInt,
+      stuckSessions: nonNegInt,
+      newErrorGroups: nonNegInt,
+    }),
+  }),
+  z.object({
+    key: z.literal("budget"),
+    value: z.object({ enabled: z.boolean(), daily_usd: z.number().min(0).max(100000) }),
+  }),
+  z.object({
+    key: z.literal("rate_limits"),
+    value: z.object({
+      session: nonNegInt.optional(),
+      speechToken: nonNegInt.optional(),
+      answer: nonNegInt.optional(),
+      feedback: nonNegInt.optional(),
+    }),
+  }),
+]);
+
+export const limitOverrideSchema = z.object({
+  bucket: z.enum(["session", "speechToken", "answer", "feedback"]),
+  maxCount: nonNegInt,
+  hours: z.number().int().min(1).max(24 * 90),
+});
+
+export const reviewSchema = z.object({
+  sessionId: z.uuid(),
+  questionIndex: z.number().int().min(0).max(50),
+  verdict: z.enum(["fair", "too_high", "too_low"]),
+  note: z.string().trim().max(1000).optional(),
+});
+
+export const emailSchema = z.object({
+  audience: z.enum(["contact_ok", "inactive", "all", "one"]),
+  days: z.number().int().min(1).max(365).default(14),
+  userId: z.uuid().optional(),
+  subject: z.string().trim().min(1, "add a subject").max(150),
+  body: z.string().trim().min(1, "write a message").max(10000),
+  dryRun: z.boolean().default(true),
+});
+
+export const roleSchema = z.object({ role: z.enum(["user", "support", "admin"]) });

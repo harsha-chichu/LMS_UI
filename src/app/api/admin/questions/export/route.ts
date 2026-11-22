@@ -39,4 +39,4 @@ export const GET = adminRoute(async ({ request }) => {
     all.map((q) => [q.id, q.domain, q.difficulty, q.text, q.topics, q.source, q.status, q.times_asked, q.times_skipped, q.avg_score, q.created_at]),
   );
   return csvResponse(`questions-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-});
+}, { write: false });

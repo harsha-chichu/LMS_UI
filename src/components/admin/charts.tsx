@@ -172,3 +172,36 @@ export function ShareBars({ rows, unit = "count" }: { rows: { label: string; val
     </ul>
   );
 }
+
+/**
+ * Funnel: one bar per step, each as a share of the first step, with the
+ * drop-off from the step before written next to it.
+ */
+export function FunnelBars({ steps }: { steps: { label: string; value: number }[] }) {
+  const first = steps[0]?.value ?? 0;
+  if (!first) return <p className="text-[13px] text-subtle">nobody signed up in this range.</p>;
+  return (
+    <ol className="flex flex-col gap-3">
+      {steps.map((s, i) => {
+        const share = s.value / first;
+        const prev = i > 0 ? steps[i - 1].value : 0;
+        const kept = i > 0 && prev ? s.value / prev : null;
+        return (
+          <li key={s.label} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 text-[13px] sm:grid-cols-[12rem_1fr_9rem]">
+            <span className="truncate">{s.label}</span>
+            <span className="h-3 rounded-full bg-track">
+              <span className="block h-3 rounded-full bg-brand" style={{ width: `${Math.max(share * 100, s.value ? 1 : 0)}%` }} />
+            </span>
+            <span className="text-right tabular-nums">
+              {s.value.toLocaleString("en-US")}
+              <span className="ml-1.5 text-[12px] text-subtle">
+                {i === 0 ? "100%" : `${Math.round(share * 100)}%`}
+                {kept != null && <span className="hidden sm:inline"> · {Math.round(kept * 100)}% of prev</span>}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}

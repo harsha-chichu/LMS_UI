@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logServerError } from "@/lib/admin/errors";
 import { requireUser } from "@/lib/auth";
 import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   } catch (err) {
     console.error("[feedback] saving failed:", err);
+    logServerError("feedback-api", err, { route: "/api/feedback", userId: auth.user.id });
     return Response.json({ error: "couldn't send feedback" }, { status: 500 });
   }
 }

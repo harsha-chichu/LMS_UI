@@ -55,32 +55,46 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 
 **Region:** API routes run in Vercel's Seoul region (`icn1`, set in `vercel.json`), next to the Supabase project (ap-northeast-2). Each answer makes several sequential Supabase calls plus one to the eval agent (Singapore), so a far-away region adds a round trip to each. Move it if the database moves.
 
-**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Apply 0014 before this version goes live: without it the app keeps working, but `/admin` errors and usage events are dropped.
+**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Apply 0014 and 0015 before this version goes live: without them the app keeps working, but `/admin` shows errors and usage and server errors aren't recorded.
 
 ## Admin dashboard (`/admin`)
 
 **Setup (once):**
-1. Run `supabase/migrations/0014_admin.sql` in the Supabase SQL editor *before* deploying this version. The API now records usage events and reads app settings from it.
-2. Set `ADMIN_EMAILS` to a comma-separated list of admin emails, in `.env.local` and in Vercel (Project → Settings → Environment Variables), then redeploy. Those accounts can open `/admin`. Emails live in env only, never in the repo.
-3. Admins can give other users admin access from `/admin/users/[id]` (stored as `lms_profiles.role = 'admin'`). Admins also get an "open admin dashboard" link in settings.
+1. Run `supabase/migrations/0014_admin.sql`, then `0015_admin_more.sql`, in the Supabase SQL editor *before* deploying.
+2. In Vercel (Project → Settings → Environment Variables) and `.env.local`, set:
+   - `ADMIN_EMAILS`: comma-separated admin emails. Those accounts are always admins. Emails live in env only, never in the repo.
+   - `CRON_SECRET`: a long random string, for the scheduled health check.
+   - Optional: `RESEND_API_KEY` + `EMAIL_FROM` (email alerts and `/admin/email`), `ALERT_EMAILS`, `ALERT_WEBHOOK_URL` (Slack or Discord), `NEXT_PUBLIC_APP_URL` (links in emails).
+3. **Two-factor sign-in:** in Supabase → Authentication → Multi-factor, make sure TOTP (authenticator app) is enabled. Every admin is asked to set it up at `/admin-mfa` the first time, then to enter a code once per sign-in. `ADMIN_MFA_REQUIRED=false` turns this off (local development only).
+4. **Schedule the health check:** run the commented `cron.schedule` block at the top of `0015_admin_more.sql` once in the SQL editor, with your app URL and `CRON_SECRET`. Supabase then calls `/api/cron/tick` every 10 minutes. This works on any Vercel plan.
+5. Redeploy.
+
+**Roles:** `ADMIN_EMAILS` and `role = 'admin'` get full access. `role = 'support'` can see everything but change nothing (no buttons, 403 from write APIs; CSV/JSON exports are allowed). Set roles from `/admin/users/[id]`. Admins and support get an "open admin dashboard" link in settings.
 
 **Pages:**
 
 | Route | What it does |
 |---|---|
-| `/admin` | KPIs (users, daily and monthly actives, sessions, completion rate, average score, AI error rate), daily trends, sessions by domain, weekly retention, things needing attention |
-| `/admin/users` | Search and sort users. Detail page: stats, sessions, feedback, AI usage; suspend (bans the auth user), make/remove admin, reset progress, delete account, export all their data as JSON |
-| `/admin/sessions` | Filter by status (including stuck > 2h), domain and level. Viewer: questions, answers, follow-ups, evaluations, who scored each answer and why scoring failed. Force-abandon stuck sessions |
-| `/admin/questions` | Bank browser with times asked, skip rate and average score; add, edit, retire/restore; coverage per domain and level; review generated questions; CSV export |
+| `/admin` | KPIs, daily trends, sign-up funnel (signed up → started → finished → came back), sessions by domain, weekly retention, and everything needing attention (open alerts, unscored answers, new errors, new feedback, stuck sessions) |
+| `/admin/ai` | Claude, eval agent and Deepgram calls, failures and latency per operation; estimated Claude cost (`src/lib/admin/pricing.ts`); agent vs fallback vs not-scored share; score distribution |
+| `/admin/errors` | Server errors grouped by kind (count, users affected, first/last seen, recent stack traces). Recorded from API routes and from `src/instrumentation.ts` for anything uncaught |
+| `/admin/alerts` | Open alerts and history, thresholds, delivery status, "send test alert". The 10-minute check alerts on AI failure rate, eval agent down, stuck sessions, new kinds of error and budget (80% / 100%), and again when each recovers (one message per incident) |
+| `/admin/system` | Live checks, configuration, DB size, busiest rate-limit buckets. Switches: **maintenance mode** (banner + no new sessions), **pause new sessions**. **Daily AI budget**: new sessions pause once today's estimated Claude spend reaches it. **Rate limits** editable without a deploy |
+| `/admin/users` | Search, sort, CSV export. Detail page: stats, sessions, feedback, AI usage; suspend, roles (admin / support), temporary rate-limit override, reset progress, delete account, JSON data export |
+| `/admin/sessions` | Filter by status (including stuck and "has unscored answers"), domain and level. Viewer with every answer, follow-up, evaluation and scoring error. **Re-score** unscored answers with Claude (rebuilds the report and per-question stats); force-abandon stuck sessions |
 | `/admin/feedback` | Inbox with new / triaged / resolved status, private notes, CSV export |
-| `/admin/ai` | Claude, eval agent and Deepgram calls, failures and latency per operation; estimated Claude cost from token counts (`src/lib/admin/pricing.ts`); agent vs fallback vs not-scored share; score distribution |
-| `/admin/system` | Live checks (database, eval agent, keys present), DB size and table rows, busiest rate-limit buckets; switches for **maintenance mode** (banner + no new sessions; everything else still works) and **pause new sessions** (the same block for a short pause, e.g. an AI outage) |
+| `/admin/email` | Email users through Resend: people who said ok to contact, inactive for N days, everyone, or one user. Preview recipients first; opted-out users are skipped; every send is logged |
 | `/admin/announcements` | Banners shown at the top of the app, with an optional end time |
+| `/admin/questions` | Bank browser with stats; add, edit, retire/restore; **CSV import** (checked first, duplicates skipped); coverage per domain and level; CSV export |
+| `/admin/quality` | Spot-check random scored answers (fair / too high / too low) with a summary by domain and scorer; weakest and strongest topics across all users, with "add question" for a topic |
 | `/admin/audit` | Every admin action: who, what, when |
+| `/admin/search` | The search box in the header: users, sessions and questions; a pasted id opens it directly |
 
-**Security:** each admin page and `/api/admin/*` route checks admin access on the server (`src/lib/admin/guard.ts`); non-admins are sent back to the app and get 403 from the APIs. Admin data is read with the service-role key, server-side only, through `lms_admin_*` functions only the service role can call. Users can't change their own `role` or suspension (a trigger rejects it). Every write is logged to `lms_admin_audit`. You can't suspend, demote or delete your own account from the dashboard.
+**Security:** each admin page and `/api/admin/*` route checks access, role and two-factor sign-in on the server (`src/lib/admin/guard.ts`). Admin data is read with the service-role key, server-side only, through `lms_admin_*` functions only the service role can call. Users can't change their own role or suspension (a trigger rejects it). Every write is logged to `lms_admin_audit`. You can't suspend, demote or delete your own account from the dashboard.
 
-**Usage numbers** start from the deploy that includes migration 0014: each Claude, eval-agent and Deepgram call is recorded in `lms_usage_events` after the response is sent (`src/lib/admin/usage.ts`), and a failed write never affects the user.
+**Recorded by the app:** Claude, eval-agent and Deepgram calls (`lms_usage_events`, since 0014) and server errors (`lms_error_events`, since 0015). Both are written after the response is sent, and a failed write never affects the user.
+
+**Users' side:** settings has a "product emails" switch (`lms_profiles.email_opt_out`). Rate limits resolve as: the user's unexpired override, then the admin setting, then the default in `src/lib/limits.ts`. They're cached for a minute per server instance.
 
 ## Screens
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { logServerError } from "@/lib/admin/errors";
 import { SessionError } from "@/lib/sessions/engine";
 import { emptyResult } from "@/lib/sessions/progress";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
@@ -45,8 +46,12 @@ export async function saveResult(
 }
 
 /** Turns thrown errors into JSON responses for the route handlers. */
-export function errorResponse(err: unknown) {
-  if (err instanceof SessionError) return Response.json({ error: err.message }, { status: err.status });
+export function errorResponse(err: unknown, route = "/api/sessions") {
+  if (err instanceof SessionError) {
+    if (err.status >= 500) logServerError("sessions-api", err, { route });
+    return Response.json({ error: err.message }, { status: err.status });
+  }
   console.error(err);
+  logServerError("sessions-api", err, { route });
   return Response.json({ error: "something went wrong" }, { status: 500 });
 }

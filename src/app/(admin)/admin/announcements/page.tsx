@@ -19,7 +19,8 @@ export default function AnnouncementsPage() {
 }
 
 async function Announcements() {
-  await requireAdminPage();
+  const { access } = await requireAdminPage();
+  const canWrite = access === "admin";
   const { data, error } = await db()
     .from("lms_announcements")
     .select("id, message, level, active, starts_at, ends_at, created_at")
@@ -36,9 +37,11 @@ async function Announcements() {
     <>
       <PageHeader title="announcements" description="a banner at the top of the app for every signed-in user." />
       <div className="flex flex-col gap-4">
+        {canWrite && (
         <Panel title="new announcement">
           <AnnouncementForm />
         </Panel>
+        )}
 
         <Panel title="history">
           <Table head={["message", "style", "published", "ends", ""]} empty={!rows.length}>
@@ -52,7 +55,7 @@ async function Announcements() {
                 <Td className="whitespace-nowrap">{fmtDateTime(a.starts_at)}</Td>
                 <Td className="whitespace-nowrap">{a.ends_at ? fmtDateTime(a.ends_at) : "—"}</Td>
                 <Td>
-                  {a.live && (
+                  {a.live && canWrite && (
                     <ActionButton url={`/api/admin/announcements/${a.id}`} method="DELETE" confirm="End this announcement now?">
                       end now
                     </ActionButton>

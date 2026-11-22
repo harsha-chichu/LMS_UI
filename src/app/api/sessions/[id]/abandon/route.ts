@@ -18,6 +18,6 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/sessions/[
     if (error) throw error;
     return Response.json({ ok: true });
   } catch (err) {
-    return errorResponse(err);
+    return errorResponse(err, "/api/sessions/[id]/abandon");
   }
 }
