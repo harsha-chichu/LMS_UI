@@ -1,7 +1,7 @@
 "use client";
 
 import { JsonForm } from "@/components/admin/actions";
-import { inputCls } from "@/components/admin/inputs";
+import { AdminSelect, inputCls } from "@/components/admin/inputs";
 
 const DOMAINS = [
   ["ai-ml", "AI / ML"],
@@ -44,29 +44,29 @@ export function QuestionForm({ question }: { question?: QuestionDraft }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-[12px] text-subtle">
           domain
-          <select name="domain" defaultValue={question?.domain ?? "backend"} className={inputCls}>
+          <AdminSelect wrapperClassName="w-full" name="domain" defaultValue={question?.domain ?? "backend"} className={inputCls}>
             {DOMAINS.map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>
             ))}
-          </select>
+          </AdminSelect>
         </label>
         <label className="flex flex-col gap-1 text-[12px] text-subtle">
           level
-          <select name="difficulty" defaultValue={question?.difficulty ?? "medium"} className={inputCls}>
+          <AdminSelect wrapperClassName="w-full" name="difficulty" defaultValue={question?.difficulty ?? "medium"} className={inputCls}>
             {["easy", "medium", "hard"].map((d) => (
               <option key={d}>{d}</option>
             ))}
-          </select>
+          </AdminSelect>
         </label>
         {editing ? (
           <label className="flex flex-col gap-1 text-[12px] text-subtle">
             status
-            <select name="status" defaultValue={question?.status ?? "active"} className={inputCls}>
+            <AdminSelect wrapperClassName="w-full" name="status" defaultValue={question?.status ?? "active"} className={inputCls}>
               <option value="active">active</option>
               <option value="retired">retired</option>
-            </select>
+            </AdminSelect>
           </label>
         ) : (
           <span />

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, CircleDashed, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
+import { AdminSelect } from "@/components/admin/inputs";
 import { cn } from "@/lib/utils";
 
 /** Status colours from the dataviz status palette; always shown with an icon and a label. */
@@ -291,14 +292,14 @@ export function FilterSelect({
   options: { value: string; label: string }[];
 }) {
   return (
-    <select name={name} defaultValue={value ?? ""} aria-label={label} className={fieldCls}>
+    <AdminSelect name={name} defaultValue={value ?? ""} aria-label={label} className={fieldCls}>
       <option value="">{label}: all</option>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
       ))}
-    </select>
+    </AdminSelect>
   );
 }
 

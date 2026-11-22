@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { adminFetch, buttonCls } from "@/components/admin/actions";
-import { inputCls } from "@/components/admin/inputs";
+import { AdminSelect, inputCls } from "@/components/admin/inputs";
 import { cn } from "@/lib/utils";
 
 type Audience = "contact_ok" | "inactive" | "all" | "one";
@@ -52,7 +52,7 @@ export function EmailComposer({ configured, defaultUserId }: { configured: boole
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={label}>
           send to
-          <select
+          <AdminSelect wrapperClassName="w-full"
             value={audience}
             onChange={(e) => {
               setAudience(e.target.value as Audience);
@@ -64,7 +64,7 @@ export function EmailComposer({ configured, defaultUserId }: { configured: boole
             <option value="inactive">people inactive for a while</option>
             <option value="all">everyone (except opted out)</option>
             <option value="one">one user</option>
-          </select>
+          </AdminSelect>
         </label>
         {audience === "inactive" && (
           <label className={label}>
