@@ -4,10 +4,11 @@ import { generateStructured } from "@/lib/llm/client";
 import {
   INTERVIEWER_SYSTEM,
   evaluatePrompt,
+  followUpPrompt,
   narrativePrompt,
   questionsPrompt,
 } from "@/lib/llm/prompts";
-import { evaluationOutput, narrativeOutput, questionsOutput } from "@/lib/llm/schemas";
+import { evaluationOutput, followUpOutput, narrativeOutput, questionsOutput } from "@/lib/llm/schemas";
 import type { ReportNarrative } from "@/lib/scoring";
 import type { Difficulty, Domain, Evaluation, QuestionResult, SpeechMetrics } from "@/types";
 
@@ -74,6 +75,28 @@ export async function evaluateAnswer(input: {
     needsFollowUp: followUp !== null,
     followUp,
   };
+}
+
+/**
+ * Whether to ask a follow-up to a main answer, and the question. Much shorter
+ * output than evaluateAnswer, so it's what the candidate waits on; the answer is
+ * scored after the response. Null when no follow-up is needed (always on easy).
+ */
+export async function decideFollowUp(input: {
+  domain: Domain;
+  difficulty: Difficulty;
+  question: string;
+  answer: string;
+}): Promise<string | null> {
+  if (input.difficulty === "easy") return null;
+  const out = await generateStructured({
+    schema: followUpOutput,
+    system: INTERVIEWER_SYSTEM,
+    prompt: followUpPrompt(input),
+    effort: "low",
+    maxTokens: 4000,
+  });
+  return out.needs_follow_up && out.follow_up?.trim() ? out.follow_up.trim() : null;
 }
 
 export async function writeNarrative(input: {

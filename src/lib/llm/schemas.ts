@@ -52,6 +52,11 @@ export const evaluationOutput = z.object({
   follow_up: z.string().nullable(),
 });
 
+export const followUpOutput = z.object({
+  needs_follow_up: z.boolean(),
+  follow_up: z.string().nullable(),
+});
+
 export const narrativeOutput = z.object({
   summary: z.string(),
   strengths: z.array(z.string()),
