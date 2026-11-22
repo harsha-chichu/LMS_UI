@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
 
 const GRANT_URL = "https://api.deepgram.com/v1/auth/grant";
 
@@ -17,6 +18,9 @@ export async function POST() {
   if (!key) return Response.json({ error: "live transcription isn't set up" }, { status: 404 });
 
   try {
+    // Each token opens a socket billed to our Deepgram account, so cap them per user.
+    // A refusal makes the client fall back to the browser's own speech recognition.
+    if (!(await takeRateLimit(auth.user.id, "speechToken"))) return rateLimited();
     const res = await fetch(GRANT_URL, {
       method: "POST",
       headers: { authorization: `Token ${key}`, "content-type": "application/json" },
