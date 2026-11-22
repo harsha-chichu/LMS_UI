@@ -39,8 +39,7 @@ export function MicCheck() {
   const finish = useCallback(async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
-    const text = stopSpeech();
-    await stopMic();
+    const [text] = await Promise.all([stopSpeech(), stopMic()]);
     setHeardText(text);
     setResult(
       matchesPhrase(text, PHRASE)
@@ -63,11 +62,14 @@ export function MicCheck() {
     setHeardText("");
     finishingRef.current = false;
     setPhase("testing");
+    // Start both from the tap itself: live transcription needs the click to start its audio.
+    const speechStarted = speech.start();
     if (!(await mic.start())) {
+      speech.cancel();
       if (!finishingRef.current) setPhase("idle");
       return;
     }
-    if (!finishingRef.current) speech.start();
+    await speechStarted;
   }
 
   // Done as soon as the phrase comes through, or after the time limit.
