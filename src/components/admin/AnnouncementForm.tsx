@@ -1,7 +1,7 @@
 "use client";
 
 import { JsonForm } from "@/components/admin/actions";
-import { inputCls } from "@/components/admin/inputs";
+import { AdminSelect, inputCls } from "@/components/admin/inputs";
 
 /** New-announcement form. The end time is converted from the admin's local time in the browser. */
 export function AnnouncementForm() {
@@ -23,10 +23,10 @@ export function AnnouncementForm() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-[12px] text-subtle">
           style
-          <select name="level" defaultValue="info" className={inputCls}>
+          <AdminSelect wrapperClassName="w-full" name="level" defaultValue="info" className={inputCls}>
             <option value="info">info</option>
             <option value="warning">warning</option>
-          </select>
+          </AdminSelect>
         </label>
         <label className="flex flex-col gap-1 text-[12px] text-subtle">
           ends (optional)
