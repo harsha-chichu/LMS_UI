@@ -79,6 +79,8 @@ export interface Scoring {
   engine: "agent" | "claude";
   status: "pending" | "done" | "failed";
   threadId?: string;
+  /** Why the last scoring attempt failed, for diagnosing "not scored" answers. */
+  error?: string;
 }
 
 export interface QuestionResult {
