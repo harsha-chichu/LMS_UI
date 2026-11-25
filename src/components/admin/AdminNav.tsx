@@ -16,6 +16,7 @@ import {
   MessageSquare,
   ScrollText,
   Server,
+  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -40,6 +41,7 @@ export const ADMIN_GROUPS: { label: string; links: NavLink[] }[] = [
       { href: "/admin/users", label: "users", Icon: Users },
       { href: "/admin/sessions", label: "sessions", Icon: Activity },
       { href: "/admin/feedback", label: "feedback", Icon: MessageSquare },
+      { href: "/admin/welcome", label: "welcome", Icon: UserPlus },
       { href: "/admin/email", label: "email", Icon: Mail },
       { href: "/admin/announcements", label: "announcements", Icon: Megaphone },
     ],

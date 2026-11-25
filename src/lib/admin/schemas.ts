@@ -84,6 +84,17 @@ export const configSchema = z.discriminatedUnion("key", [
       feedback: nonNegInt.optional(),
     }),
   }),
+  z.object({
+    key: z.literal("welcome"),
+    value: z
+      .object({
+        enabled: z.boolean(),
+        title: z.string().trim().max(120),
+        body: z.string().trim().max(5000),
+        sendEmail: z.boolean(),
+      })
+      .refine((v) => !v.enabled || v.body.length > 0, { message: "write a message before turning it on", path: ["body"] }),
+  }),
 ]);
 
 export const limitOverrideSchema = z.object({

@@ -50,9 +50,10 @@ Set them in `.env.local` locally and in Vercel → Settings → Environment Vari
 | `NEXT_PUBLIC_APP_URL` | optional | links in emails and alerts | relative links |
 
 ## One-time Supabase setup
-1. **SQL editor:** run every file in `supabase/migrations/`, in order (`0001` … `0015`).
+1. **SQL editor:** run every file in `supabase/migrations/`, in order (`0001` … `0016`).
    - The early ones create profiles, sessions, the question bank and their policies.
    - `0014` and `0015` add the admin dashboard.
+   - `0016` adds new sign-up alerts and the welcome note.
    - Existing tables are untouched.
 2. **Service key:** copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
 3. **Authentication → URL configuration:**
@@ -103,12 +104,12 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 
 **Region:** API routes run in Vercel's Seoul region (`icn1`, set in `vercel.json`), next to the Supabase project (ap-northeast-2). Each answer makes several sequential Supabase calls plus one to the eval agent (Singapore), so a far-away region adds a round trip to each. Move it if the database moves.
 
-**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Without `0014` and `0015`, the app keeps working, but `/admin` shows errors, and usage and server errors aren't recorded.
+**Deploying a new migration:** run it in Supabase *before* deploying the code that uses it. Without `0014` and `0015`, the app keeps working, but `/admin` shows errors, and usage and server errors aren't recorded. Without `0016`, new users get no welcome note and you get no sign-up alerts.
 
 ## Admin dashboard (`/admin`)
 
 **Setup (once):**
-1. Run `supabase/migrations/0014_admin.sql`, then `0015_admin_more.sql`, in the Supabase SQL editor *before* deploying.
+1. Run `supabase/migrations/0014_admin.sql`, then `0015_admin_more.sql` and `0016_welcome.sql`, in the Supabase SQL editor *before* deploying.
 2. In Vercel (Project → Settings → Environment Variables) and `.env.local`, set:
    - `ADMIN_EMAILS`: comma-separated admin emails. Those accounts are always admins. Emails live in env only, never in the repo.
    - `CRON_SECRET`: a long random string, for the scheduled health check.
@@ -132,6 +133,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 | `/admin/sessions` | Filter by status (including stuck, "has unscored answers" and "missing suggested answers"), domain and level. Viewer with every answer, follow-up, evaluation, suggested answer and scoring error. **Add suggested answers** where the scorer left them out (score and feedback stay the same). **Re-score** unscored answers with the eval agent, Claude as backup (rebuilds the report and per-question stats); force-abandon stuck sessions |
 | `/admin/feedback` | Inbox with new / triaged / resolved status, private notes, CSV export |
 | `/admin/email` | Email users through Resend: people who said ok to contact, inactive for N days, everyone, or one user. Preview recipients first; opted-out users are skipped; every send is logged |
+| `/admin/welcome` | The welcome note new users see once as a popup after signing up, and get by email (`{name}` becomes their first name). Off until you write it and switch it on. Also lists recent sign-ups; you're alerted on each one through the usual alert channels (`ALERT_EMAILS`/`ADMIN_EMAILS` and `ALERT_WEBHOOK_URL`) |
 | `/admin/announcements` | Banners shown at the top of the app, with an optional end time |
 | `/admin/questions` | Bank browser with stats; add, edit, retire/restore; **CSV import** (checked first, duplicates skipped); coverage per domain and level; CSV export |
 | `/admin/quality` | Spot-check random scored answers (fair / too high / too low) with a summary by domain and scorer; weakest and strongest topics across all users, with "add question" for a topic |
