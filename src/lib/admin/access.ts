@@ -36,14 +36,24 @@ export function mfaStep(
   return verified ? "verify" : "enroll";
 }
 
-/** The `aal` claim of a Supabase access token (already verified by getUser). */
-export function aalFromJwt(token: string | null | undefined): string | null {
+function jwtClaims(token: string | null | undefined): Record<string, unknown> | null {
   try {
     const part = token?.split(".")[1];
     if (!part) return null;
-    const json = JSON.parse(Buffer.from(part, "base64url").toString("utf8")) as { aal?: string };
-    return json.aal ?? null;
+    return JSON.parse(Buffer.from(part, "base64url").toString("utf8")) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+/** The `aal` claim of a Supabase access token (already verified by getUser). */
+export function aalFromJwt(token: string | null | undefined): string | null {
+  const aal = jwtClaims(token)?.aal;
+  return typeof aal === "string" ? aal : null;
+}
+
+/** The `session_id` claim: one per sign-in, kept across token refreshes. */
+export function sessionIdFromJwt(token: string | null | undefined): string | null {
+  const id = jwtClaims(token)?.session_id;
+  return typeof id === "string" && id ? id : null;
 }

@@ -1,9 +1,12 @@
 import "server-only";
 import type { User } from "@supabase/supabase-js";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { cache } from "react";
-import { type AdminAccess, aalFromJwt, accessFor, mfaRequired, mfaStep } from "@/lib/admin/access";
+import { type AdminAccess, aalFromJwt, accessFor, mfaRequired, mfaStep, sessionIdFromJwt } from "@/lib/admin/access";
+import { clientIp } from "@/lib/admin/mfa-alert-text";
+import { recordAdminSecurityEvents } from "@/lib/admin/mfa-alerts";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
 
@@ -40,8 +43,17 @@ async function current() {
   if (!data.user) return null;
   // getUser() just verified this token with Supabase, so reading its aal claim is safe.
   const { data: s } = await supabase.auth.getSession();
-  const step = mfaStep(mfaRequired(), aalFromJwt(s.session?.access_token), data.user.factors);
+  const token = s.session?.access_token;
+  const aal = aalFromJwt(token);
+  const step = mfaStep(mfaRequired(), aal, data.user.factors);
   const access = await getAdminAccess(data.user);
+  // Through two-factor into the dashboard: alert on a new sign-in or a new authenticator (once each).
+  if (access && step === "ok" && mfaRequired() && aal === "aal2") {
+    const user = data.user;
+    const h = await headers();
+    const request = { ip: clientIp(h.get("x-forwarded-for"), h.get("x-real-ip")), userAgent: h.get("user-agent") };
+    after(() => recordAdminSecurityEvents(user, access, sessionIdFromJwt(token), request));
+  }
   return { user: data.user, access, step };
 }
 

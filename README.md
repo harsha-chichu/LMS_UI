@@ -50,10 +50,11 @@ Set them in `.env.local` locally and in Vercel → Settings → Environment Vari
 | `NEXT_PUBLIC_APP_URL` | optional | links in emails and alerts | relative links |
 
 ## One-time Supabase setup
-1. **SQL editor:** run every file in `supabase/migrations/`, in order (`0001` … `0016`).
+1. **SQL editor:** run every file in `supabase/migrations/`, in order (`0001` … `0017`).
    - The early ones create profiles, sessions, the question bank and their policies.
    - `0014` and `0015` add the admin dashboard.
    - `0016` adds new sign-up alerts and the welcome note.
+   - `0017` adds alerts for admin sign-ins and new admin authenticators.
    - Existing tables are untouched.
 2. **Service key:** copy the service_role key into `SUPABASE_SERVICE_ROLE_KEY`.
 3. **Authentication → URL configuration:**
@@ -114,7 +115,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
    - `ADMIN_EMAILS`: comma-separated admin emails. Those accounts are always admins. Emails live in env only, never in the repo.
    - `CRON_SECRET`: a long random string, for the scheduled health check.
    - Optional: `RESEND_API_KEY` + `EMAIL_FROM` (email alerts and `/admin/email`), `ALERT_EMAILS`, `ALERT_WEBHOOK_URL` (Slack or Discord), `NEXT_PUBLIC_APP_URL` (links in emails).
-3. **Two-factor sign-in:** in Supabase → Authentication → Multi-factor, make sure TOTP (authenticator app) is enabled. Every admin is asked to set it up at `/admin-mfa` the first time, then to enter a code once per sign-in. `ADMIN_MFA_REQUIRED=false` turns this off (local development only).
+3. **Two-factor sign-in:** in Supabase → Authentication → Multi-factor, make sure TOTP (authenticator app) is enabled. Every admin is asked to set it up at `/admin-mfa` the first time, then to enter a code once per sign-in. `ADMIN_MFA_REQUIRED=false` turns this off (local development only). You get an alert (same channels as other alerts) each time someone signs in to `/admin` with two-factor, and the first time the app sees a new authenticator on an admin account (needs migration `0017`). Right after deploying `0017`, expect one "new authenticator" alert per existing admin.
 4. **Schedule the health check:** run the commented `cron.schedule` block at the top of `0015_admin_more.sql` once in the SQL editor, with your app URL and `CRON_SECRET`. Supabase then calls `/api/cron/tick` every 10 minutes. This works on any Vercel plan.
 5. Redeploy.
 
