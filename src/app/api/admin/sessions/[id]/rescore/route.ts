@@ -6,7 +6,7 @@ import type { ReportHistory } from "@/lib/scoring";
 import { finalize, rescoreAnswer } from "@/lib/sessions/engine";
 import type { Report, SessionRow } from "@/types";
 
-// Up to 90s per answer with the eval agent (in parallel), Claude as backup, plus a new summary.
+// Up to 90s per answer with the eval agent (in parallel), plus a new summary.
 export const maxDuration = 300;
 
 /** The report's own before/after data, so re-scoring keeps the original comparison. */
@@ -22,7 +22,7 @@ function historyFromReport(row: SessionRow): ReportHistory {
 
 /**
  * Scores answers that couldn't be scored at the time, the way a live session
- * does (eval agent first, Claude as backup), then rebuilds the report of a
+ * does (a fresh eval agent run), then rebuilds the report of a
  * finished session. Answers that still can't be scored come back as an error
  * saying why, and keep that reason on the session.
  */
@@ -48,7 +48,8 @@ export const POST = adminRoute<RouteContext<"/api/admin/sessions/[id]/rescore">>
   let report: Report | null = row.report;
   let finalResults = results;
   if (row.status === "completed") {
-    const out = await finalize({ ...row, results }, historyFromReport(row));
+    // Already retried just now: don't replay what still failed a second time.
+    const out = await finalize({ ...row, results }, historyFromReport(row), { replay: false });
     finalResults = out.results;
     report = out.report;
   }

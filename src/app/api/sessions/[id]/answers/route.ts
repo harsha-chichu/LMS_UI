@@ -1,6 +1,5 @@
-import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { SessionError, scoreLater, scoresLater, submitAnswer, type Target } from "@/lib/sessions/engine";
+import { SessionError, submitAnswer, type Target } from "@/lib/sessions/engine";
 import { rateLimited, takeRateLimit } from "@/lib/rate-limit";
 import { errorResponse, loadSession, saveResult } from "@/lib/sessions/store";
 import { serverTimer } from "@/lib/timing";
@@ -45,22 +44,10 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[i
     }
 
     const result = await submitAnswer(row, index, target, { text, mode, durationSec }, audio, auth.user.id);
-    // "agent" or "claude": which one decided the follow-up (claude also covers an agent fallback).
-    timer.mark(`decide-${result.scoring?.engine ?? "claude"}`);
+    timer.mark(result.scoring?.status === "failed" ? "agent-failed" : "agent");
     await saveResult(auth.user.id, row, index, result);
     timer.mark("save");
 
-    if (scoresLater(result)) {
-      // Only replaces the unscored copy just saved (`result`), so it can't clobber
-      // newer input. If the session is already finished, finalize has scored it
-      // and the save is refused.
-      after(async () => {
-        const scored = await scoreLater(row.config, result);
-        await saveResult(auth.user.id, row, index, scored, result).catch((err) =>
-          console.warn("[claude:evaluate] saving background score failed:", err instanceof Error ? err.message : err),
-        );
-      });
-    }
     if (performance.now() - started > 5000) console.info(`[answers] slow submit: ${timer.header()}`);
     return Response.json({ result }, { headers: { "Server-Timing": timer.header() } });
   } catch (err) {

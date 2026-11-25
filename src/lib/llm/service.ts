@@ -1,23 +1,15 @@
 import "server-only";
 import { TOPICS } from "@/lib/constants";
 import { generateStructured } from "@/lib/llm/client";
-import {
-  INTERVIEWER_SYSTEM,
-  evaluatePrompt,
-  followUpPrompt,
-  narrativePrompt,
-  questionsPrompt,
-} from "@/lib/llm/prompts";
-import { evaluationOutput, followUpOutput, narrativeOutput, questionsOutput } from "@/lib/llm/schemas";
-import type { ReportNarrative } from "@/lib/scoring";
-import type { Difficulty, Domain, Evaluation, QuestionResult, SpeechMetrics } from "@/types";
+import { INTERVIEWER_SYSTEM, questionsPrompt } from "@/lib/llm/prompts";
+import { questionsOutput } from "@/lib/llm/schemas";
+import type { Difficulty, Domain } from "@/types";
 
 /*
- * Each call throws if Claude is unavailable or replies with something unusable;
- * callers decide how to degrade (see questions/pick.ts and sessions/engine.ts).
+ * Claude writes new interview questions. Scoring, follow-ups and the session
+ * summary are the eval agent's (see sessions/engine.ts). Throws if Claude is
+ * unavailable or replies with something unusable; questions/pick.ts degrades.
  */
-
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 interface GeneratedQuestion {
   text: string;
@@ -47,79 +39,4 @@ export async function generateQuestions(
     .map((q) => ({ text: q.text, topics: allowed.has(q.topic) ? [q.topic] : [] }));
   if (qs.length < count) throw new Error(`expected ${count} questions, got ${qs.length}`);
   return qs.slice(0, count);
-}
-
-export async function evaluateAnswer(input: {
-  domain: Domain;
-  difficulty: Difficulty;
-  question: string;
-  answer: string;
-  followUp?: { question: string; answer: string };
-}): Promise<Evaluation> {
-  const out = await generateStructured({
-    schema: evaluationOutput,
-    operation: "evaluate",
-    system: INTERVIEWER_SYSTEM,
-    prompt: evaluatePrompt(input),
-    effort: "low",
-  });
-  // Enforce the follow-up policy in code too; the prompt is not a guarantee.
-  const allowFollowUp = !input.followUp && input.difficulty !== "easy";
-  const followUp = allowFollowUp && out.needs_follow_up && out.follow_up?.trim() ? out.follow_up.trim() : null;
-  return {
-    score: Math.round(clamp(out.score, 0, 10) * 10) / 10,
-    feedback: out.feedback.trim(),
-    nextTime: out.next_time.trim(),
-    strengths: out.strengths.map((s) => s.trim()).filter(Boolean).slice(0, 3),
-    weaknesses: out.weaknesses.map((s) => s.trim()).filter(Boolean).slice(0, 3),
-    suggestedAnswer: out.suggested_answer.trim() || undefined,
-    suggestedPoints: out.suggested_points.map((p) => p.trim()).filter(Boolean).slice(0, 5),
-    needsFollowUp: followUp !== null,
-    followUp,
-  };
-}
-
-/**
- * Whether to ask a follow-up to a main answer, and the question. Much shorter
- * output than evaluateAnswer, so it's what the candidate waits on; the answer is
- * scored after the response. Null when no follow-up is needed (always on easy).
- */
-export async function decideFollowUp(input: {
-  domain: Domain;
-  difficulty: Difficulty;
-  question: string;
-  answer: string;
-}): Promise<string | null> {
-  if (input.difficulty === "easy") return null;
-  const out = await generateStructured({
-    schema: followUpOutput,
-    operation: "follow_up",
-    system: INTERVIEWER_SYSTEM,
-    prompt: followUpPrompt(input),
-    effort: "low",
-    maxTokens: 4000,
-  });
-  return out.needs_follow_up && out.follow_up?.trim() ? out.follow_up.trim() : null;
-}
-
-export async function writeNarrative(input: {
-  domain: Domain;
-  difficulty: Difficulty;
-  results: QuestionResult[];
-  metrics: SpeechMetrics;
-}): Promise<ReportNarrative> {
-  const out = await generateStructured({
-    schema: narrativeOutput,
-    operation: "narrative",
-    system: INTERVIEWER_SYSTEM,
-    prompt: narrativePrompt(input),
-    effort: "medium",
-  });
-  return {
-    summary: out.summary.trim(),
-    strengths: out.strengths.slice(0, 3),
-    improvements: out.improvements.slice(0, 3),
-    clarity: { level: Math.round(clamp(out.clarity_level, 1, 5)), label: out.clarity_label },
-    confidence: { level: Math.round(clamp(out.confidence_level, 1, 5)), label: out.confidence_label },
-  };
 }

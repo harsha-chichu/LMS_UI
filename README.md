@@ -6,7 +6,7 @@ Pick a domain, answer out loud (or type), get follow-ups when an answer is thin,
 
 **AI services:**
 - **Scoring:** the separate **eval agent** ([`harsha-chichu/preppy_eval_agent`](https://github.com/harsha-chichu/preppy_eval_agent), Python, Gemini) decides follow-ups, scores answers, writes the suggested answers and summarises the session.
-- **Claude** (Anthropic SDK) is the **backup** scorer when the agent fails, and writes new questions when the question bank can't fill a session.
+- **Claude** (Anthropic SDK) writes new questions when the question bank can't fill a session. It does not score answers.
 - **Deepgram** transcribes voice answers live.
 
 ## Run it
@@ -27,7 +27,7 @@ git clone https://github.com/harsha-chichu/preppy_eval_agent
 cd preppy_eval_agent && uv run uvicorn server:app --host 127.0.0.1 --port 8000
 ```
 
-Use the same token on both sides: `EVAL_AGENT_TOKEN` in the agent's `.env` and in this app's `.env.local`. Point `EVAL_AGENT_URL` at the agent (`http://127.0.0.1:8000` locally). Without an agent the app still works, with Claude scoring everything.
+Use the same token on both sides: `EVAL_AGENT_TOKEN` in the agent's `.env` and in this app's `.env.local`. Point `EVAL_AGENT_URL` at the agent (`http://127.0.0.1:8000` locally). Without an agent, sessions run but no answer gets scored.
 
 ## Environment variables
 
@@ -38,8 +38,8 @@ Set them in `.env.local` locally and in Vercel → Settings → Environment Vari
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL | nothing works |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or `…_PUBLISHABLE_KEY`) | yes | browser and server Supabase clients | nothing works |
 | `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`) | yes | server-only writes (sessions, admin, logs) | sessions can't be saved |
-| `EVAL_AGENT_URL`, `EVAL_AGENT_TOKEN` | recommended | the eval agent (main scorer) | Claude scores everything |
-| `ANTHROPIC_API_KEY` | recommended | backup scoring, follow-ups and summaries; new questions for custom topics | no backup when the agent fails (answers end up "not scored"); custom topics get existing bank questions instead of new ones |
+| `EVAL_AGENT_URL`, `EVAL_AGENT_TOKEN` | yes | the eval agent (the only scorer) | answers are kept but "not scored" |
+| `ANTHROPIC_API_KEY` | recommended | new questions for custom topics | custom topics get existing bank questions instead of new ones |
 | `DEEPGRAM_API_KEY` | optional | live transcription | browser speech recognition (Chrome, Edge, Safari) |
 | `ADMIN_EMAILS` | for `/admin` | comma-separated admin emails | only profiles with `role = 'admin'` can open `/admin` |
 | `ADMIN_MFA_REQUIRED` | optional | `false` turns off admin two-factor sign-in (local dev only) | 2FA required |
@@ -78,15 +78,16 @@ Set them in `.env.local` locally and in Vercel → Settings → Environment Vari
 - Either way, the transcript lands in the answer box to fix before it's sent.
 
 **How scoring works**
-For each answer, in this order:
-1. **Eval agent.** The answer (with the recording, for voice) goes to the eval agent. It replies as soon as it has decided whether to ask a follow-up. Scoring then continues in the background (score, feedback, strengths and weaknesses, suggested answer and key points, delivery scores for voice) and is collected when the session finishes.
-2. **Claude.** If the agent is down or errors, Claude scores instead (`src/lib/llm/`).
-3. **Not scored.** If both fail, the answer is kept and retried when the session finishes. If it still can't be scored, the report marks it "not scored" and leaves it out of the average. Admins can **re-score** it later from `/admin/sessions`.
+The eval agent is the only scorer (`src/lib/sessions/engine.ts`):
+1. The answer (with the recording, for voice) goes to the eval agent. It replies as soon as it has decided whether to ask a follow-up. Scoring then continues in the background (score, feedback, strengths and weaknesses, suggested answer and key points, delivery scores for voice) and is collected when the session finishes.
+2. If the agent can't be reached when an answer comes in, the answer is kept, marked unscored, and the session moves on (no follow-up). A recording without text can't be kept, since only the agent transcribes it: the user is asked to try again or type.
+3. When the session finishes, answers the agent never got, or whose run failed, are replayed once with a fresh agent run (with any follow-up answers). Answers that only timed out aren't replayed.
+4. Anything still unscored is marked "not scored" in the report and left out of the average. Admins can **re-score** it later from `/admin/sessions`.
 
 More details:
-- The session summary also comes from the agent first, then Claude, then a plain fallback text.
+- The session summary comes from the agent; if it fails, the report gets a plain fallback text.
 - The report weights answers 70% and communication 30%. With recorded audio, the agent's grammar, pronunciation, fluency and clarity scores are blended into communication.
-- The agent keeps state in memory. Restarting it mid-session drops in-flight evaluations; the fallback covers them.
+- The agent keeps state in memory. Restarting it mid-session drops in-flight evaluations; the replay at the end of the session covers them.
 - API routes require a signed-in user. Routes that cost money are rate-limited per user (defaults in `src/lib/limits.ts`, editable in `/admin/system`): 30 sessions a day, 120 transcription tokens and 300 answers an hour, 20 feedback messages a day. Counters live in Postgres (`lms_rate_limit`) and are taken atomically.
 - Saving an answer is a compare-and-set on that question (`lms_save_result_guarded`). A double submit or a second tab gets a 409 instead of overwriting the first answer.
 - Users can read their own sessions but not write them. Only the API routes write them, with the service-role key, so scores on the friends leaderboard can't be edited from the browser.
@@ -131,7 +132,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus `n
 | `/admin/alerts` | Open alerts and history, thresholds, delivery status, "send test alert". The 10-minute check alerts on AI failure rate, eval agent down, stuck sessions, new kinds of error and budget (80% / 100%), and again when each recovers (one message per incident) |
 | `/admin/system` | Live checks, configuration, DB size, busiest rate-limit buckets. Switches: **maintenance mode** (banner + no new sessions), **pause new sessions**. **Daily AI budget**: new sessions pause once today's estimated Claude spend reaches it. **Rate limits** editable without a deploy |
 | `/admin/users` | Search, sort, CSV export. Detail page: stats, sessions, feedback, AI usage; suspend, roles (admin / support), temporary rate-limit override, reset progress, delete account, JSON data export |
-| `/admin/sessions` | Filter by status (including stuck, "has unscored answers" and "missing suggested answers"), domain and level. Viewer with every answer, follow-up, evaluation, suggested answer and scoring error. **Add suggested answers** where the scorer left them out (score and feedback stay the same). **Re-score** unscored answers with the eval agent, Claude as backup (rebuilds the report and per-question stats); force-abandon stuck sessions |
+| `/admin/sessions` | Filter by status (including stuck, "has unscored answers" and "missing suggested answers"), domain and level. Viewer with every answer, follow-up, evaluation, suggested answer and scoring error. **Add suggested answers** where the scorer left them out (score and feedback stay the same). **Re-score** unscored answers with the eval agent (rebuilds the report and per-question stats); force-abandon stuck sessions |
 | `/admin/feedback` | Inbox with new / triaged / resolved status, private notes, CSV export |
 | `/admin/email` | Email users through Resend: people who said ok to contact, inactive for N days, everyone, or one user. Preview recipients first; opted-out users are skipped; every send is logged |
 | `/admin/welcome` | The welcome note new users see once as a popup after signing up, and get by email (`{name}` becomes their first name). Off until you write it and switch it on. Also lists recent sign-ups; you're alerted on each one through the usual alert channels (`ALERT_EMAILS`/`ADMIN_EMAILS` and `ALERT_WEBHOOK_URL`) |
@@ -165,8 +166,8 @@ Plus `/login`, `/signup`, `/forgot-password`, `/reset-password`. Everything exce
 
 | What you see | Why | Fix |
 |---|---|---|
-| Re-score or scoring error `claude: 401 … invalid x-api-key`; `/admin/system` shows Claude **key rejected** | `ANTHROPIC_API_KEY` is missing or wrong. Claude is only the backup, so this shows up when the eval agent also fails | Put a valid key from console.anthropic.com in Vercel, then redeploy |
-| Answers "not scored" | The eval agent and Claude both failed at the time (the reason is on the session in `/admin/sessions`) | Fix the cause, then use **re-score** on the session |
+| `/admin/system` shows Claude **key rejected**, or custom-topic sessions get no new questions | `ANTHROPIC_API_KEY` is missing or wrong (Claude only writes questions now) | Put a valid key from console.anthropic.com in Vercel, then redeploy |
+| Answers "not scored" | The eval agent failed at the time and on the replay (the reason is on the session in `/admin/sessions`) | Fix the cause, then use **re-score** on the session |
 | No "suggested answer" in a report, mostly on questions with follow-ups | The eval agent returned a score without one. Fixed in `preppy_eval_agent`, where the suggested answer is now required | Redeploy the agent. For existing reports, go to `/admin/sessions` → "missing suggested answers" → **add suggested answers** (scores don't change) |
 | No alerts arrive | The scheduled check isn't running | Set `CRON_SECRET`, run the `cron.schedule` block from `0015` once, then check `select status_code, created from net._http_response order by created desc limit 5;` (401 = wrong secret, 503 = not set or not redeployed, 404 = wrong URL) |
 | `/admin-mfa` can't show a QR code | TOTP is off in Supabase | Supabase → Authentication → Multi-factor → enable authenticator app (TOTP). It's free; only SMS is paid |
@@ -192,8 +193,8 @@ src/
 ├─ lib/
 │  ├─ admin/               guard (roles, 2FA), audit log, usage + error logging, alerts, budget, CSV, dashboard queries
 │  ├─ agent/               HTTP client + mapping for the eval agent
-│  ├─ sessions/            per-question scoring engine (agent → Claude), re-scoring, persistence
-│  ├─ llm/                 Claude client, prompts, schemas
+│  ├─ sessions/            per-question scoring engine (eval agent), re-scoring, persistence
+│  ├─ llm/                 Claude client and prompts for question generation; request schemas
 │  ├─ supabase/            browser + server clients
 │  ├─ limits.ts            rate-limit defaults
 │  ├─ scoring.ts           report assembly + 70/30 weighting

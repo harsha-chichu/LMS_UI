@@ -19,9 +19,6 @@ vi.mock("@/lib/agent/client", () => ({
   summarize: vi.fn(),
 }));
 
-const llm = vi.hoisted(() => ({ decideFollowUp: vi.fn(), evaluateAnswer: vi.fn(), writeNarrative: vi.fn() }));
-vi.mock("@/lib/llm/service", () => llm);
-
 const { rescoreAnswer } = await import("@/lib/sessions/engine");
 
 const config: SessionConfig = { domain: "backend", difficulty: "medium", count: 1, mode: "text" };
@@ -53,13 +50,12 @@ beforeEach(() => {
 });
 
 describe("rescoreAnswer", () => {
-  it("scores with the eval agent and never calls Claude when the agent works", async () => {
+  it("scores with a fresh eval agent run", async () => {
     agent.startEvaluation.mockResolvedValue(run("completed", { result }));
     const r = await rescoreAnswer(config, unscored(), "u1");
     expect(agent.startEvaluation).toHaveBeenCalledWith(expect.objectContaining({ answer: "write-through with TTLs", user_id: "u1" }));
     expect(r.evaluation?.score).toBe(6.5);
     expect(r.scoring).toMatchObject({ engine: "agent", status: "done" });
-    expect(llm.evaluateAnswer).not.toHaveBeenCalled();
   });
 
   it("replays the recorded follow-up answer when the agent asks one", async () => {
@@ -80,22 +76,30 @@ describe("rescoreAnswer", () => {
     expect(r.evaluation?.score).toBe(6.5);
   });
 
-  it("falls back to Claude when the agent fails, and keeps both reasons if Claude fails too", async () => {
+  it("marks the answer failed with both reasons when the agent fails again", async () => {
     agent.startEvaluation.mockRejectedValue(new Error("eval agent /evaluations → 502"));
-    llm.evaluateAnswer.mockRejectedValue(new Error("401 invalid x-api-key"));
     const r = await rescoreAnswer(config, unscored(), "u1");
-    expect(llm.evaluateAnswer).toHaveBeenCalledOnce();
     expect(r.evaluation).toBeUndefined();
-    expect(r.scoring?.status).toBe("failed");
-    expect(r.scoring?.error).toContain("agent: eval agent /evaluations → 502");
-    expect(r.scoring?.error).toContain("claude: 401 invalid x-api-key");
+    expect(r.scoring).toEqual({ engine: "agent", status: "failed", error: "claude: 401; retry: eval agent /evaluations → 502" });
   });
 
-  it("uses Claude directly when the eval agent isn't configured", async () => {
+  it("keeps a score the answer already had when the agent fails", async () => {
+    agent.startEvaluation.mockRejectedValue(new Error("eval agent /evaluations → 502"));
+    const scored: QuestionResult = {
+      ...unscored(),
+      evaluation: { score: 7, feedback: "ok.", nextTime: "", needsFollowUp: false, followUp: null },
+      scoring: { engine: "agent", status: "done", threadId: "t0" },
+    };
+    const r = await rescoreAnswer(config, scored, "u1");
+    expect(r.evaluation?.score).toBe(7);
+    expect(r.scoring).toEqual({ engine: "agent", status: "failed", error: "eval agent /evaluations → 502" });
+  });
+
+  it("says so when the eval agent isn't configured", async () => {
     agent.enabled = false;
-    llm.evaluateAnswer.mockResolvedValue({ score: 8, feedback: "good", nextTime: "", needsFollowUp: false, followUp: null });
     const r = await rescoreAnswer(config, unscored(), "u1");
     expect(agent.startEvaluation).not.toHaveBeenCalled();
-    expect(r.scoring).toMatchObject({ engine: "claude", status: "done" });
+    expect(r.scoring?.status).toBe("failed");
+    expect(r.scoring?.error).toMatch(/not configured/);
   });
 });

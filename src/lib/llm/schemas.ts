@@ -39,30 +39,3 @@ export const savedTestRequestSchema = z.object({
 export const questionsOutput = z.object({
   questions: z.array(z.object({ text: z.string(), topic: z.string() })),
 });
-
-export const evaluationOutput = z.object({
-  score: z.number(),
-  feedback: z.string(),
-  next_time: z.string(),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
-  suggested_answer: z.string(),
-  suggested_points: z.array(z.string()),
-  needs_follow_up: z.boolean(),
-  follow_up: z.string().nullable(),
-});
-
-export const followUpOutput = z.object({
-  needs_follow_up: z.boolean(),
-  follow_up: z.string().nullable(),
-});
-
-export const narrativeOutput = z.object({
-  summary: z.string(),
-  strengths: z.array(z.string()),
-  improvements: z.array(z.string()),
-  clarity_level: z.number(),
-  clarity_label: z.string(),
-  confidence_level: z.number(),
-  confidence_label: z.string(),
-});

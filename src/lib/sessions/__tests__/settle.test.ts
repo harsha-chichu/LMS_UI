@@ -7,6 +7,7 @@ const agent = vi.hoisted(() => ({
   getEvaluation: vi.fn(),
   skipFollowUp: vi.fn(),
   summarize: vi.fn(),
+  startEvaluation: vi.fn(),
 }));
 vi.mock("@/lib/agent/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/agent/client")>();
@@ -14,12 +15,9 @@ vi.mock("@/lib/agent/client", async (importOriginal) => {
     AgentError: actual.AgentError,
     agentEnabled: () => true,
     answerFollowUp: vi.fn(),
-    startEvaluation: vi.fn(),
     ...agent,
   };
 });
-const llm = vi.hoisted(() => ({ decideFollowUp: vi.fn(), evaluateAnswer: vi.fn(), writeNarrative: vi.fn() }));
-vi.mock("@/lib/llm/service", () => llm);
 
 const { AgentError } = await import("@/lib/agent/client");
 const { finalize, SETTLE_TIMEOUT_MS } = await import("@/lib/sessions/engine");
@@ -96,34 +94,69 @@ describe("finishing a session with the eval agent", () => {
     expect(agent.getEvaluation).toHaveBeenCalledTimes(3);
     expect(results[0].evaluation?.score).toBe(8);
     expect(results[0].scoring).toMatchObject({ engine: "agent", status: "done" });
-    expect(llm.evaluateAnswer).not.toHaveBeenCalled();
+    expect(agent.startEvaluation).not.toHaveBeenCalled();
   });
 
-  it("falls back to Claude at once when the agent's run failed", async () => {
-    agent.getEvaluation.mockRejectedValue(new AgentError("eval agent run failed: RateLimitError", true));
-    llm.evaluateAnswer.mockResolvedValue({ score: 6, feedback: "ok.", nextTime: "", needsFollowUp: false, followUp: null });
+  it("replays an answer once with a fresh agent run when its run failed", async () => {
+    agent.getEvaluation.mockRejectedValueOnce(new AgentError("eval agent run failed: RateLimitError", true));
+    agent.startEvaluation.mockResolvedValue({ ...run("completed", 6), thread_id: "t2" });
 
     const { results } = await finish(answeredSession());
 
     expect(agent.getEvaluation).toHaveBeenCalledTimes(1);
+    expect(agent.startEvaluation).toHaveBeenCalledOnce();
     expect(results[0].evaluation?.score).toBe(6);
-    expect(results[0].scoring).toMatchObject({ engine: "claude", status: "done" });
+    expect(results[0].scoring).toEqual({ engine: "agent", status: "done", threadId: "t2" });
   });
 
-  it("waits out the deadline, then records why the answer isn't scored", async () => {
+  it("replays an answer the agent never got (it was down on submit)", async () => {
+    const row = answeredSession();
+    row.results[0].scoring = { engine: "agent", status: "failed", error: "eval agent /evaluations → 502" };
+    agent.startEvaluation.mockResolvedValue(run("completed", 7));
+
+    const { results } = await finish(row);
+
+    expect(agent.getEvaluation).not.toHaveBeenCalled();
+    expect(results[0].evaluation?.score).toBe(7);
+    expect(results[0].scoring?.status).toBe("done");
+  });
+
+  it("doesn't replay when asked not to (admin re-score already retried)", async () => {
+    const row = answeredSession();
+    row.results[0].scoring = { engine: "agent", status: "failed", error: "502" };
+
+    const done = finalize(row, undefined, { replay: false });
+    await vi.runAllTimersAsync();
+    const { results } = await done;
+
+    expect(agent.startEvaluation).not.toHaveBeenCalled();
+    expect(results[0].scoring).toEqual({ engine: "agent", status: "failed", error: "502" });
+  });
+
+  it("waits out the deadline, then records why the answer isn't scored (no replay)", async () => {
     agent.getEvaluation.mockResolvedValue(run("scoring"));
-    llm.evaluateAnswer.mockRejectedValue(new Error("401 invalid x-api-key"));
 
     const started = Date.now();
     const { results, report } = await finish(answeredSession());
 
     expect(Date.now() - started).toBeGreaterThanOrEqual(SETTLE_TIMEOUT_MS);
+    expect(agent.startEvaluation).not.toHaveBeenCalled();
     expect(results[0].evaluation).toBeUndefined();
     expect(results[0].scoring).toEqual({
-      engine: "claude",
+      engine: "agent",
       status: "failed",
-      error: `agent: no result after ${SETTLE_TIMEOUT_MS / 1000}s; claude: 401 invalid x-api-key`,
+      threadId: "t1",
+      error: `no result after ${SETTLE_TIMEOUT_MS / 1000}s`,
     });
     expect(report.questions[0].feedback).toMatch(/couldn't score/);
+  });
+
+  it("uses a plain summary when the agent can't write one", async () => {
+    agent.getEvaluation.mockResolvedValue(run("completed", 8));
+    agent.summarize.mockRejectedValue(new Error("502"));
+
+    const { report } = await finish(answeredSession());
+
+    expect(report.summary).toMatch(/couldn.t write a summary/);
   });
 });

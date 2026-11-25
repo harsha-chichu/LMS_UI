@@ -5,7 +5,7 @@ import { AdminError, adminRoute, check, idParam } from "@/lib/admin/route";
 import { rescoreAnswer } from "@/lib/sessions/engine";
 import type { SessionRow } from "@/types";
 
-// Up to 90s per answer with the eval agent (in parallel), Claude as backup.
+// Up to 90s per answer with the eval agent (in parallel).
 export const maxDuration = 300;
 
 /**

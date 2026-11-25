@@ -1,34 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Evaluation, SessionConfig, SessionRow, Turn } from "@/types";
+import type { AgentRun } from "@/lib/agent/client";
+import type { SessionConfig, SessionRow, Turn } from "@/types";
 
-// Claude only: the eval agent isn't configured.
-vi.mock("@/lib/agent/client", () => ({
-  agentEnabled: () => false,
-  answerFollowUp: vi.fn(),
-  getEvaluation: vi.fn(),
-  skipFollowUp: vi.fn(),
+// Scoring is the eval agent's alone; each test scripts its responses.
+const agent = vi.hoisted(() => ({
+  enabled: true,
   startEvaluation: vi.fn(),
+  answerFollowUp: vi.fn(),
+  skipFollowUp: vi.fn(),
+  getEvaluation: vi.fn(),
+}));
+vi.mock("@/lib/agent/client", () => ({
+  AgentError: class extends Error {},
+  agentEnabled: () => agent.enabled,
+  startEvaluation: agent.startEvaluation,
+  answerFollowUp: agent.answerFollowUp,
+  skipFollowUp: agent.skipFollowUp,
+  getEvaluation: agent.getEvaluation,
   summarize: vi.fn(),
 }));
 
-const llm = vi.hoisted(() => ({
-  decideFollowUp: vi.fn(),
-  evaluateAnswer: vi.fn(),
-  writeNarrative: vi.fn(),
-}));
-vi.mock("@/lib/llm/service", () => llm);
+const { skip, submitAnswer } = await import("@/lib/sessions/engine");
 
-const { scoreLater, scoresLater, skip, submitAnswer } = await import("@/lib/sessions/engine");
-
-const evaluation: Evaluation = {
-  score: 7,
-  feedback: "solid.",
-  nextTime: "add an example.",
-  needsFollowUp: false,
-  followUp: null,
-  strengths: [],
-  weaknesses: [],
-};
+function run(status: AgentRun["status"], extra: Partial<AgentRun> = {}): AgentRun {
+  return { thread_id: "t1", status, followup_question: null, transcript: null, communication: null, result: null, error: null, ...extra };
+}
 
 function session(difficulty: SessionConfig["difficulty"]): SessionRow {
   return {
@@ -46,99 +42,89 @@ function session(difficulty: SessionConfig["difficulty"]): SessionRow {
 }
 
 const typed = (text: string): Turn => ({ text, mode: "text", durationSec: 0 });
+const audio = () => new Blob(["x"], { type: "audio/webm" });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  llm.evaluateAnswer.mockResolvedValue(evaluation);
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  agent.enabled = true;
 });
 
-describe("submitting a main answer (Claude)", () => {
-  it("waits only on the follow-up decision, not the full evaluation", async () => {
-    llm.decideFollowUp.mockResolvedValue("what happens across regions?");
+describe("submitting a main answer", () => {
+  it("starts an agent run and records the follow-up it asks", async () => {
+    agent.startEvaluation.mockResolvedValue(run("pending_followup", { followup_question: "what happens across regions?" }));
     const r = await submitAnswer(session("medium"), 0, "main", typed("token bucket in redis"), null);
 
-    expect(llm.decideFollowUp).toHaveBeenCalledOnce();
-    expect(llm.evaluateAnswer).not.toHaveBeenCalled();
+    expect(agent.startEvaluation).toHaveBeenCalledWith(expect.objectContaining({ answer: "token bucket in redis", user_id: "u1" }));
     expect(r.followUps).toEqual([{ question: "what happens across regions?", skipped: false }]);
-    // Scored later, together with the follow-up's answer.
-    expect(r.scoring).toBeUndefined();
-    expect(scoresLater(r)).toBe(false);
+    expect(r.scoring).toEqual({ engine: "agent", status: "pending", threadId: "t1" });
   });
 
-  it("leaves scoring for after the response when no follow-up is needed", async () => {
-    llm.decideFollowUp.mockResolvedValue(null);
-    const r = await submitAnswer(session("medium"), 0, "main", typed("a thorough answer"), null);
+  it("keeps the answer, marked unscored, when the agent is down", async () => {
+    agent.startEvaluation.mockRejectedValue(new Error("eval agent /evaluations → 502"));
+    const r = await submitAnswer(session("medium"), 0, "main", typed("token bucket in redis"), null);
 
+    expect(r.answer?.text).toBe("token bucket in redis");
     expect(r.followUps).toEqual([]);
-    expect(scoresLater(r)).toBe(true);
-    expect(llm.evaluateAnswer).not.toHaveBeenCalled();
-
-    const scored = await scoreLater(session("medium").config, r);
-    expect(llm.evaluateAnswer).toHaveBeenCalledOnce();
-    expect(scored.evaluation?.score).toBe(7);
-    expect(scored.scoring).toEqual({ engine: "claude", status: "done" });
+    expect(r.scoring).toEqual({ engine: "agent", status: "failed", error: "eval agent /evaluations → 502" });
   });
 
-  it("moves on without a follow-up if the decision fails", async () => {
-    llm.decideFollowUp.mockRejectedValue(new Error("overloaded"));
-    const r = await submitAnswer(session("hard"), 0, "main", typed("an answer"), null);
-
-    expect(r.followUps).toEqual([]);
-    expect(scoresLater(r)).toBe(true);
+  it("rejects a recording without text when the agent is down (nothing can transcribe it)", async () => {
+    agent.startEvaluation.mockRejectedValue(new Error("502"));
+    await expect(
+      submitAnswer(session("medium"), 0, "main", { text: "", mode: "voice", durationSec: 5 }, audio()),
+    ).rejects.toMatchObject({ status: 502 });
   });
 
-  it("never asks for a follow-up on easy", async () => {
-    const r = await submitAnswer(session("easy"), 0, "main", typed("an answer"), null);
+  it("keeps the answer unscored when the agent isn't configured", async () => {
+    agent.enabled = false;
+    const r = await submitAnswer(session("medium"), 0, "main", typed("an answer"), null);
 
-    expect(llm.decideFollowUp).not.toHaveBeenCalled();
-    expect(scoresLater(r)).toBe(true);
+    expect(agent.startEvaluation).not.toHaveBeenCalled();
+    expect(r.scoring?.status).toBe("failed");
+    expect(r.scoring?.error).toMatch(/not configured/);
   });
 
-  it("rejects an answer with no text", async () => {
+  it("rejects an answer with no text and no recording", async () => {
     await expect(submitAnswer(session("medium"), 0, "main", typed(""), null)).rejects.toMatchObject({ status: 422 });
   });
 });
 
 describe("after a follow-up is asked", () => {
   async function withFollowUp() {
-    llm.decideFollowUp.mockResolvedValue("what happens across regions?");
+    agent.startEvaluation.mockResolvedValue(run("pending_followup", { followup_question: "what happens across regions?" }));
     const row = session("medium");
     row.results = [await submitAnswer(row, 0, "main", typed("token bucket in redis"), null)];
     vi.clearAllMocks();
     return row;
   }
 
-  it("answering it scores the main answer and follow-up together, after the response", async () => {
+  it("answering it continues the same agent thread", async () => {
     const row = await withFollowUp();
+    agent.answerFollowUp.mockResolvedValue(run("scoring"));
     const r = await submitAnswer(row, 0, "followup", typed("shard by user id"), null);
 
-    expect(llm.decideFollowUp).not.toHaveBeenCalled();
+    expect(agent.answerFollowUp).toHaveBeenCalledWith("t1", expect.objectContaining({ answer: "shard by user id" }));
     expect(r.followUps[0].answer?.text).toBe("shard by user id");
-    expect(scoresLater(r)).toBe(true);
-
-    await scoreLater(row.config, r);
-    expect(llm.evaluateAnswer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        answer: "token bucket in redis",
-        followUp: { question: "what happens across regions?", answer: "shard by user id" },
-      }),
-    );
+    expect(r.scoring).toEqual({ engine: "agent", status: "pending", threadId: "t1" });
   });
 
-  it("skipping it scores the main answer after the response", async () => {
+  it("keeps the follow-up answer, marked unscored, when the agent is down", async () => {
     const row = await withFollowUp();
+    agent.answerFollowUp.mockRejectedValue(new Error("timeout"));
+    const r = await submitAnswer(row, 0, "followup", typed("shard by user id"), null);
+
+    expect(r.followUps[0].answer?.text).toBe("shard by user id");
+    expect(r.scoring).toEqual({ engine: "agent", status: "failed", error: "timeout" });
+  });
+
+  it("skipping it tells the agent, which scores the main answer", async () => {
+    const row = await withFollowUp();
+    agent.skipFollowUp.mockResolvedValue(run("scoring"));
     const r = await skip(row, 0, "followup");
 
+    expect(agent.skipFollowUp).toHaveBeenCalledWith("t1");
     expect(r.followUps[0].skipped).toBe(true);
-    expect(llm.evaluateAnswer).not.toHaveBeenCalled();
-    expect(scoresLater(r)).toBe(true);
-  });
-
-  it("rejects an audio-only follow-up answer when only Claude is available", async () => {
-    const row = await withFollowUp();
-    const audio = new Blob(["x"], { type: "audio/webm" });
-    await expect(
-      submitAnswer(row, 0, "followup", { text: "", mode: "voice", durationSec: 5 }, audio),
-    ).rejects.toMatchObject({ status: 422 });
+    expect(r.scoring).toEqual({ engine: "agent", status: "pending", threadId: "t1" });
   });
 });

@@ -4,8 +4,8 @@ import { loadHistory } from "@/lib/sessions/history";
 import { errorResponse, loadSession } from "@/lib/sessions/store";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-// Waits up to SETTLE_TIMEOUT_MS (2 min) for the agent's scores, then Claude
-// fallbacks and the summary; well under this limit.
+// Waits up to SETTLE_TIMEOUT_MS (2 min) for the agent's scores, then one agent
+// replay for answers it never got (up to 90s) and the summary; under this limit.
 export const maxDuration = 300;
 
 /** Wait for scoring to settle, write the report and close the session. */
