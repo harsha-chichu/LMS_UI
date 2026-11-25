@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Confetti } from "@/components/common/Confetti";
 
 type Note = { title: string; body: string };
 
@@ -19,7 +20,8 @@ export function WelcomeDialog() {
     fetch("/api/welcome", { method: "POST" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: ({ show: boolean } & Partial<Note>) | null) => {
-        if (!cancelled && d?.show && d.body) setNote({ title: d.title ?? "", body: d.body });
+        if (!cancelled && d?.show && d.body)
+          setNote({ title: d.title ?? "", body: d.body });
       })
       .catch(() => {});
     return () => {
@@ -45,30 +47,43 @@ export function WelcomeDialog() {
   if (!note) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={close}>
+    <>
+      <Confetti />
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="welcome-title"
-        onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[85dvh] w-full max-w-[480px] flex-col rounded-[20px] border border-line bg-surface-2 p-6 shadow-xl"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={close}
       >
-        <button type="button" onClick={close} aria-label="close" className="absolute top-4 right-4 rounded-full p-1 text-subtle hover:text-foreground">
-          <X className="size-4" aria-hidden />
-        </button>
-        <h2 id="welcome-title" className="pr-8 text-[20px] font-medium">
-          {note.title}
-        </h2>
-        <p className="mt-3 overflow-y-auto text-[14px] leading-relaxed whitespace-pre-line text-foreground/85">{note.body}</p>
-        <button
-          ref={button}
-          type="button"
-          onClick={close}
-          className="mt-6 inline-flex h-10 items-center justify-center self-end rounded-full bg-brand px-5 text-[14px] font-medium text-primary-foreground hover:brightness-110"
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="welcome-title"
+          onClick={(e) => e.stopPropagation()}
+          className="relative flex max-h-[85dvh] w-full max-w-[480px] flex-col rounded-[20px] border border-line bg-surface-2 p-6 shadow-xl"
         >
-          get started
-        </button>
+          <button
+            type="button"
+            onClick={close}
+            aria-label="close"
+            className="absolute top-4 right-4 rounded-full p-1 text-subtle hover:text-foreground"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+          <h2 id="welcome-title" className="pr-8 text-[20px] font-medium">
+            {note.title}
+          </h2>
+          <p className="mt-3 overflow-y-auto text-[14px] leading-relaxed whitespace-pre-line text-foreground/85">
+            {note.body}
+          </p>
+          <button
+            ref={button}
+            type="button"
+            onClick={close}
+            className="mt-6 inline-flex h-10 items-center justify-center self-end rounded-full bg-brand px-5 text-[14px] font-medium text-primary-foreground hover:brightness-110"
+          >
+            get started
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
