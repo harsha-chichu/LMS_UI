@@ -9,7 +9,9 @@ import { SaveButton } from "@/components/common/SaveButton";
 import { FeedbackForm } from "@/components/feedback/FeedbackForm";
 import { Arc, Bar, Tag } from "@/components/profile/parts";
 import { QuestionDetail } from "@/components/report/QuestionDetail";
+import { balanceLabel, radarInsight, type RadarAxis } from "@/components/report/radar";
 import { ScoreRing } from "@/components/report/ScoreRing";
+import { SkillRadar } from "@/components/report/SkillRadar";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ANSWER_WEIGHT, COMMUNICATION_WEIGHT, domainShort } from "@/lib/constants";
 import { useStartSession } from "@/hooks/useStartSession";
@@ -93,7 +95,9 @@ export function ReportBody({
             )}
           </Card>
 
-          <Card className="order-5 lg:order-none">
+          {report.communicationScore !== null && <SkillBalance report={report} />}
+
+          <Card className="order-6 lg:order-none">
             <CardHead label="communication">
               <span className="tabular-nums">
                 {report.communicationScore === null ? "not rated" : `${report.communicationScore}/100`}
@@ -115,13 +119,13 @@ export function ReportBody({
         </div>
 
         <div className="contents lg:grid lg:min-w-0 lg:gap-3.5">
-          <Card className="order-2 lg:order-none">
+          <Card className="order-3 lg:order-none">
             <CardHead label="summary" />
             <p className="mt-3 text-[15px] leading-relaxed text-foreground/90">{report.summary}</p>
           </Card>
 
           {report.strengths.length > 0 && (
-            <Card className="order-3 lg:order-none">
+            <Card className="order-4 lg:order-none">
               <CardHead label="strengths" />
               <ul className="mt-3 space-y-3">
                 {report.strengths.map((s) => (
@@ -135,7 +139,7 @@ export function ReportBody({
           )}
 
           {report.improvements.length > 0 && (
-            <Card className="order-4 lg:order-none">
+            <Card className="order-5 lg:order-none">
               <CardHead label="areas to improve" />
               <ul className="mt-3 space-y-3">
                 {report.improvements.map((s) => (
@@ -273,6 +277,40 @@ function ScoreDelta({ now, before }: { now: number | null; before: number | null
         {delta === 0 ? "same as" : delta > 0 ? `+${delta.toFixed(1)} vs` : `${delta.toFixed(1)} vs`} last time
       </span>
     </>
+  );
+}
+
+/** The answers score and the four communication ratings (0–5 bars, scaled to 0–100) as one pentagon. */
+function SkillBalance({ report }: { report: Report }) {
+  const { communication: comm } = report;
+  const axes: RadarAxis[] = [
+    { label: "answers", value: report.answersScore },
+    { label: "clarity", value: comm.clarity.level * 20 },
+    { label: "pace", value: comm.pace.level * 20 },
+    { label: "confidence", value: comm.confidence.level * 20 },
+    { label: "filler words", value: comm.fillers.level * 20 },
+  ];
+  const insight = radarInsight(axes);
+
+  return (
+    <Card className="order-2 lg:order-none">
+      <CardHead label="skill balance">{balanceLabel(axes.map((a) => a.value))}</CardHead>
+      <div className="flex justify-center pt-1.5">
+        <SkillRadar axes={axes} />
+      </div>
+      <p className="mt-3.5 rounded-[14px] bg-surface-2 px-3.5 py-3 text-[14px] leading-relaxed text-foreground/85">
+        {"even" in insight ? (
+          <>
+            a balanced shape. everything is close to <b className="font-semibold text-foreground">{insight.even}</b>.
+          </>
+        ) : (
+          <>
+            strongest: <b className="font-semibold text-foreground">{insight.strongest}</b>. the dent at{" "}
+            <b className="font-semibold text-foreground">{insight.weakest}</b> is the quickest win next time.
+          </>
+        )}
+      </p>
+    </Card>
   );
 }
 
