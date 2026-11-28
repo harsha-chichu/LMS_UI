@@ -1,10 +1,15 @@
-export type Domain =
-  | "ai-ml"
-  | "data-science"
-  | "backend"
-  | "frontend"
-  | "system-design"
-  | "behavioral";
+/** Every interview domain, in display order. Zod schemas and the Domain type both come from this list. */
+export const DOMAIN_VALUES = [
+  "ai-ml",
+  "data-science",
+  "backend",
+  "frontend",
+  "system-design",
+  "behavioral",
+  "finance-accounting",
+] as const;
+
+export type Domain = (typeof DOMAIN_VALUES)[number];
 
 export type Difficulty = "easy" | "medium" | "hard";
 

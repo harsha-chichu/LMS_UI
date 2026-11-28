@@ -48,7 +48,7 @@ export function Hero() {
           </Link>
         </div>
         <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-subtle md:text-[14px]">
-          {["6 domains", "voice or text", "follow-ups on thin answers", "scored out of 100"].map((fact) => (
+          {["7 domains", "voice or text", "follow-ups on thin answers", "scored out of 100"].map((fact) => (
             <li key={fact} className="flex items-center gap-2">
               <span className="size-1 rounded-full bg-brand" />
               {fact}
@@ -122,7 +122,7 @@ export function HowItWorks() {
         <Step
           n="01"
           title="pick your domain"
-          body="six domains at three difficulties, with 3 to 10 questions. narrow it to the topics you want, or let it lean towards your weakest."
+          body="seven domains at three difficulties, with 3 to 10 questions. narrow it to the topics you want, or let it lean towards your weakest."
         >
           <div className="flex flex-wrap gap-2">
             {DOMAINS.map((d, i) => (
@@ -259,7 +259,7 @@ export function Domains() {
     <section className={SECTION}>
       <Reveal>
         <p className={EYEBROW}>what you can practise</p>
-        <h2 className={cn(H2, "max-w-[620px]")}>six domains, {TOPIC_CHIPS.length} topics, or type your own.</h2>
+        <h2 className={cn(H2, "max-w-[620px]")}>seven domains, {TOPIC_CHIPS.length} topics, or type your own.</h2>
       </Reveal>
       {/* The rows are wider than the column; the sides fade out. */}
       <div className={cn(GRID_GAP, "space-y-3 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]")}>

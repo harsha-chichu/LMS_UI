@@ -25,7 +25,7 @@ const QUESTIONS = [
   },
   {
     q: "what can i practise?",
-    a: "ai/ml, data science, backend, frontend, system design and behavioral. pick up to five topics in a domain, or type your own.",
+    a: "ai/ml, data science, backend, frontend, system design, behavioral, and finance & accounting. pick up to five topics in a domain, or type your own.",
   },
 ];
 

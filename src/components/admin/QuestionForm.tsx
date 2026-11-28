@@ -10,6 +10,7 @@ const DOMAINS = [
   ["frontend", "frontend"],
   ["system-design", "system design"],
   ["behavioral", "behavioral"],
+  ["finance-accounting", "finance & accounting"],
 ] as const;
 
 export interface QuestionDraft {

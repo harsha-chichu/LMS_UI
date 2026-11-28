@@ -1,15 +1,15 @@
 import { DIFFICULTY_HINT, TOPICS, domainLabel } from "@/lib/constants";
 import type { Difficulty, Domain, QuestionResult, SpeechMetrics } from "@/types";
 
-const VOICE = `write in lowercase, plain and direct, like a senior engineer giving quick notes. no emojis, no markdown.`;
+const VOICE = `write in lowercase, plain and direct, like a senior interviewer giving quick notes. no emojis, no markdown.`;
 
-export const INTERVIEWER_SYSTEM = `you are an experienced technical interviewer running mock interviews for job seekers.
+export const INTERVIEWER_SYSTEM = `you are an experienced interviewer running mock interviews for job seekers.
 you ask realistic questions, notice when an answer stays abstract, and give short, specific, kind feedback.
 ${VOICE}`;
 
 const DIFFICULTY_GUIDE: Record<Difficulty, string> = {
   easy: "foundational questions a junior candidate should handle; one concept each.",
-  medium: "mid-level questions that need reasoning about trade-offs or debugging, not just definitions.",
+  medium: "mid-level questions that need reasoning about trade-offs, debugging or applying a rule to a case, not just definitions.",
   hard: "senior-level, open-ended questions: design, ambiguity, failure modes, and trade-offs at scale.",
 };
 

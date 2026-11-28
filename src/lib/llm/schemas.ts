@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { DOMAIN_VALUES } from "@/types";
 import { MAX_SAVED_TEST, MAX_TOPIC_LENGTH, MAX_TOPICS } from "@/lib/constants";
 
-const domain = z.enum(["ai-ml", "data-science", "backend", "frontend", "system-design", "behavioral"]);
+const domain = z.enum(DOMAIN_VALUES);
 const difficulty = z.enum(["easy", "medium", "hard"]);
 const mode = z.enum(["voice", "text"]);
 

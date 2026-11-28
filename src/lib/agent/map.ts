@@ -10,6 +10,7 @@ const AGENT_DOMAIN: Record<Domain, string> = {
   frontend: "frontend",
   "system-design": "system-design",
   behavioral: "behavioral",
+  "finance-accounting": "finance-accounting",
 };
 
 export function agentDomain(domain: Domain) {

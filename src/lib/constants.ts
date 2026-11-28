@@ -7,6 +7,7 @@ export const DOMAINS: { value: Domain; label: string; short: string }[] = [
   { value: "frontend", label: "Frontend", short: "frontend" },
   { value: "system-design", label: "System design", short: "system design" },
   { value: "behavioral", label: "Behavioral", short: "behavioral" },
+  { value: "finance-accounting", label: "Finance & accounting", short: "finance" },
 ];
 
 /** Curated topics per domain. The fallback question bank is tagged with these. */
@@ -17,6 +18,15 @@ export const TOPICS = {
   frontend: ["javascript", "css & layout", "react & state", "performance", "accessibility", "architecture"],
   "system-design": ["fundamentals", "data & storage", "messaging & real-time", "reliability", "large-scale products"],
   behavioral: ["about you", "conflict", "failure & mistakes", "leadership & influence", "prioritization", "growth & feedback"],
+  "finance-accounting": [
+    "accounting & standards",
+    "financial analysis",
+    "corporate finance & valuation",
+    "audit & assurance",
+    "governance, risk & compliance",
+    "direct tax",
+    "gst & indirect tax",
+  ],
 } as const satisfies Record<Domain, readonly string[]>;
 
 export const MAX_TOPICS = 5;

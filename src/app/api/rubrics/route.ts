@@ -2,10 +2,10 @@ import { z } from "zod";
 import { fetchRubric } from "@/lib/agent/client";
 import { agentDomain } from "@/lib/agent/map";
 import { requireUser } from "@/lib/auth";
-import type { ScoringRubric } from "@/types";
+import { DOMAIN_VALUES, type ScoringRubric } from "@/types";
 
 const querySchema = z.object({
-  domain: z.enum(["ai-ml", "data-science", "backend", "frontend", "system-design", "behavioral"]),
+  domain: z.enum(DOMAIN_VALUES),
   difficulty: z.enum(["easy", "medium", "hard"]),
 });
 

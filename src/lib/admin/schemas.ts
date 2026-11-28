@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { DOMAIN_VALUES } from "@/types";
 
-export const domainSchema = z.enum(["ai-ml", "data-science", "backend", "frontend", "system-design", "behavioral"]);
+export const domainSchema = z.enum(DOMAIN_VALUES);
 export const difficultySchema = z.enum(["easy", "medium", "hard"]);
 
 const topics = z
