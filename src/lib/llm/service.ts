@@ -8,6 +8,7 @@ import {
   narrativePrompt,
   questionsPrompt,
 } from "@/lib/llm/prompts";
+import { alignFollowUpAnswers } from "@/lib/sessions/followUps";
 import { evaluationOutput, followUpOutput, narrativeOutput, questionsOutput } from "@/lib/llm/schemas";
 import type { ReportNarrative } from "@/lib/scoring";
 import type { Difficulty, Domain, Evaluation, QuestionResult, SpeechMetrics } from "@/types";
@@ -54,7 +55,7 @@ export async function evaluateAnswer(input: {
   difficulty: Difficulty;
   question: string;
   answer: string;
-  followUp?: { question: string; answer: string };
+  followUps?: { question: string; answer: string | null }[];
 }): Promise<Evaluation> {
   const out = await generateStructured({
     schema: evaluationOutput,
@@ -64,7 +65,8 @@ export async function evaluateAnswer(input: {
     effort: "low",
   });
   // Enforce the follow-up policy in code too; the prompt is not a guarantee.
-  const allowFollowUp = !input.followUp && input.difficulty !== "easy";
+  const asked = input.followUps ?? [];
+  const allowFollowUp = !asked.length && input.difficulty !== "easy";
   const followUp = allowFollowUp && out.needs_follow_up && out.follow_up?.trim() ? out.follow_up.trim() : null;
   return {
     score: Math.round(clamp(out.score, 0, 10) * 10) / 10,
@@ -74,6 +76,10 @@ export async function evaluateAnswer(input: {
     weaknesses: out.weaknesses.map((s) => s.trim()).filter(Boolean).slice(0, 3),
     suggestedAnswer: out.suggested_answer.trim() || undefined,
     suggestedPoints: out.suggested_points.map((p) => p.trim()).filter(Boolean).slice(0, 5),
+    followUpAnswers: alignFollowUpAnswers(
+      asked,
+      out.follow_up_answers.map((answer) => ({ answer })),
+    ),
     needsFollowUp: followUp !== null,
     followUp,
   };

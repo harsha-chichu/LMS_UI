@@ -120,7 +120,7 @@ describe("after a follow-up is asked", () => {
     expect(llm.evaluateAnswer).toHaveBeenCalledWith(
       expect.objectContaining({
         answer: "token bucket in redis",
-        followUp: { question: "what happens across regions?", answer: "shard by user id" },
+        followUps: [{ question: "what happens across regions?", answer: "shard by user id" }],
       }),
     );
   });
@@ -132,6 +132,16 @@ describe("after a follow-up is asked", () => {
     expect(r.followUps[0].skipped).toBe(true);
     expect(llm.evaluateAnswer).not.toHaveBeenCalled();
     expect(scoresLater(r)).toBe(true);
+  });
+
+  it("tells the scorer a skipped follow-up was asked but not answered", async () => {
+    const row = await withFollowUp();
+    const r = await skip(row, 0, "followup");
+
+    await scoreLater(row.config, r);
+    expect(llm.evaluateAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ followUps: [{ question: "what happens across regions?", answer: null }] }),
+    );
   });
 
   it("rejects an audio-only follow-up answer when only Claude is available", async () => {

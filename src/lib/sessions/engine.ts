@@ -46,18 +46,18 @@ function warn(label: string, err: unknown) {
 }
 
 /**
- * Score with Claude using the main answer plus the latest answered follow-up,
- * and record the outcome on `r`. Returns the evaluation, or null if Claude failed.
+ * Score with Claude using the main answer plus every follow-up that was answered
+ * or skipped, and record the outcome on `r`. Returns the evaluation, or null if Claude failed.
  */
 async function claudeScore(config: SessionConfig, r: QuestionResult, allowFollowUp: boolean) {
-  const answered = [...r.followUps].reverse().find((f) => f.answer);
+  const closed = r.followUps.filter((f) => f.answer || f.skipped);
   try {
     const data = await evaluateAnswer({
       domain: config.domain,
       difficulty: config.difficulty,
       question: r.question.text,
       answer: r.answer!.text,
-      followUp: answered ? { question: answered.question, answer: answered.answer!.text } : undefined,
+      followUps: closed.length ? closed.map((f) => ({ question: f.question, answer: f.answer?.text ?? null })) : undefined,
     });
     r.evaluation = allowFollowUp ? data : { ...data, needsFollowUp: false, followUp: null };
     r.scoring = { engine: "claude", status: "done" };
@@ -98,7 +98,7 @@ function applyAgentRun(r: QuestionResult, run: AgentRun, turn: Turn, target: Tar
     next.followUps = [...next.followUps, { question: run.followup_question, skipped: false }];
   }
   if (run.status === "completed" && run.result) {
-    next.evaluation = toEvaluation(run.result);
+    next.evaluation = toEvaluation(run.result, next.followUps);
     next.scoring.status = "done";
   }
   return next;
@@ -250,7 +250,7 @@ async function settleScores(row: SessionRow, results: QuestionResult[], timeoutM
             r.answer = { ...r.answer, communication: run.communication };
           }
           if (run.status === "completed" && run.result) {
-            r.evaluation = toEvaluation(run.result);
+            r.evaluation = toEvaluation(run.result, r.followUps);
             r.scoring = { ...r.scoring!, status: "done" };
           } else if (run.status === "pending_followup") {
             // A follow-up nobody will answer (left unanswered, or asked after the agent's
@@ -330,7 +330,7 @@ export async function rescoreAnswer(config: SessionConfig, r: QuestionResult, us
       const deadline = Date.now() + RESCORE_AGENT_TIMEOUT_MS;
       while (true) {
         if (run.status === "completed" && run.result) {
-          next.evaluation = toEvaluation(run.result);
+          next.evaluation = toEvaluation(run.result, next.followUps);
           next.scoring = { engine: "agent", status: "done", threadId: run.thread_id };
           return next;
         }

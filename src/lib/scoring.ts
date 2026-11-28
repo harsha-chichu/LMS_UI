@@ -164,7 +164,11 @@ export function buildReport(input: {
         ? "even a rough first answer earns points — try one sentence on the core idea."
         : (r.evaluation?.nextTime ?? ""),
       answer: r.answer?.text ?? null,
-      followUps: r.followUps.map((f) => ({ question: f.question, answer: f.answer?.text ?? null })),
+      followUps: r.followUps.map((f, j) => ({
+        question: f.question,
+        answer: f.answer?.text ?? null,
+        suggestedAnswer: r.evaluation?.followUpAnswers?.[j] || null,
+      })),
       suggestedAnswer: r.evaluation?.suggestedAnswer ?? null,
       suggestedPoints: r.evaluation?.suggestedPoints ?? [],
       ...(r.question.bankId && history && r.question.bankId in history.previousScores

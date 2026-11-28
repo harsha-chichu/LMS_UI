@@ -18,6 +18,8 @@ export interface AgentEvaluationResult {
   /** Older agent builds don't send this. */
   suggested_answer?: string | null;
   suggested_points?: string[];
+  /** One per follow-up asked, in order. Older agent builds don't send this. */
+  followup_suggestions?: { question: string; suggested_answer: string }[];
 }
 
 export interface AgentRun {

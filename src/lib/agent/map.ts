@@ -1,6 +1,7 @@
 import type { AgentEvaluationResult, AgentSummary, SummaryRequest } from "@/lib/agent/client";
 import type { ReportNarrative } from "@/lib/scoring";
-import type { Difficulty, Domain, Evaluation, QuestionResult, SpeechMetrics } from "@/types";
+import { alignFollowUpAnswers } from "@/lib/sessions/followUps";
+import type { Difficulty, Domain, Evaluation, FollowUp, QuestionResult, SpeechMetrics } from "@/types";
 
 /** The agent has a rubric for each LMS domain, under the same key (see its src/rubrics.py). */
 const AGENT_DOMAIN: Record<Domain, string> = {
@@ -20,7 +21,8 @@ export function agentDomain(domain: Domain) {
 const firstSentence = (s: string) => s.match(/^[^.!?]*[.!?]/)?.[0] ?? s;
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-export function toEvaluation(result: AgentEvaluationResult): Evaluation {
+/** The agent's result as an Evaluation; `followUps` are the question's follow-ups, to line up their suggested answers. */
+export function toEvaluation(result: AgentEvaluationResult, followUps: Pick<FollowUp, "question">[] = []): Evaluation {
   const weakness = result.weaknesses[0];
   return {
     score: Math.round(Math.min(10, Math.max(0, result.score)) * 10) / 10,
@@ -30,6 +32,10 @@ export function toEvaluation(result: AgentEvaluationResult): Evaluation {
     followUp: null,
     suggestedAnswer: result.suggested_answer?.trim() || undefined,
     suggestedPoints: result.suggested_points?.map((p) => p.trim()).filter(Boolean).slice(0, 5),
+    followUpAnswers: alignFollowUpAnswers(
+      followUps,
+      (result.followup_suggestions ?? []).map((s) => ({ question: s.question, answer: s.suggested_answer ?? "" })),
+    ),
     strengths: result.strengths,
     weaknesses: result.weaknesses,
   };

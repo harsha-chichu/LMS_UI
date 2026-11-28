@@ -28,6 +28,7 @@ export function withSuggestion(stored: QuestionResult, fresh: QuestionResult): Q
       ...stored.evaluation,
       suggestedAnswer: fresh.evaluation?.suggestedAnswer?.trim() || undefined,
       suggestedPoints: fresh.evaluation?.suggestedPoints ?? [],
+      followUpAnswers: fresh.evaluation?.followUpAnswers ?? stored.evaluation.followUpAnswers,
     },
   };
 }
@@ -36,7 +37,14 @@ export function withSuggestion(stored: QuestionResult, fresh: QuestionResult): Q
 export function patchReportSuggestion(report: Report, i: number, r: QuestionResult): Report {
   if (!report.questions?.[i]) return report;
   const questions = report.questions.map((q, j) =>
-    j === i ? { ...q, suggestedAnswer: r.evaluation?.suggestedAnswer ?? null, suggestedPoints: r.evaluation?.suggestedPoints ?? [] } : q,
+    j === i
+      ? {
+          ...q,
+          suggestedAnswer: r.evaluation?.suggestedAnswer ?? null,
+          suggestedPoints: r.evaluation?.suggestedPoints ?? [],
+          followUps: q.followUps?.map((f, k) => ({ ...f, suggestedAnswer: r.evaluation?.followUpAnswers?.[k] || null })),
+        }
+      : q,
   );
   return { ...report, questions };
 }

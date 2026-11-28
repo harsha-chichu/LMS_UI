@@ -69,6 +69,8 @@ export interface Evaluation {
   suggestedAnswer?: string;
   /** The suggested answer as 3–5 short key points. */
   suggestedPoints?: string[];
+  /** A short suggested answer per follow-up, in the same order as the question's followUps ("" if none). */
+  followUpAnswers?: string[];
   strengths?: string[];
   weaknesses?: string[];
 }
@@ -148,7 +150,7 @@ export interface Report {
     nextTime: string;
     /** What the candidate said or typed. Unset on reports from before this was stored. */
     answer?: string | null;
-    followUps?: { question: string; answer: string | null }[];
+    followUps?: { question: string; answer: string | null; suggestedAnswer?: string | null }[];
     suggestedAnswer?: string | null;
     suggestedPoints?: string[];
     /**

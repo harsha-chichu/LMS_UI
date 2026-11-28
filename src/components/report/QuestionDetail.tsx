@@ -82,7 +82,8 @@ function Answers({ q, save }: { q: ReportQuestion; save?: ReactNode }) {
   const followUps = q.followUps ?? [];
   const hasYours = Boolean(q.answer) || followUps.length > 0;
   const points = q.suggestedPoints ?? [];
-  const hasSuggested = Boolean(q.suggestedAnswer) || points.length > 0;
+  const followUpSuggestions = followUps.filter((f) => f.suggestedAnswer?.trim());
+  const hasSuggested = Boolean(q.suggestedAnswer) || points.length > 0 || followUpSuggestions.length > 0;
   if (!hasYours && !hasSuggested) return save ? <div className="flex justify-end">{save}</div> : null;
 
   const yours = hasYours && (
@@ -101,7 +102,7 @@ function Answers({ q, save }: { q: ReportQuestion; save?: ReactNode }) {
       ))}
     </div>
   );
-  const suggested = hasSuggested && <Suggested points={points} full={q.suggestedAnswer ?? null} />;
+  const suggested = hasSuggested && <Suggested points={points} full={q.suggestedAnswer ?? null} followUps={followUpSuggestions} />;
   const both = hasYours && hasSuggested;
 
   return (
@@ -152,8 +153,19 @@ function Answers({ q, save }: { q: ReportQuestion; save?: ReactNode }) {
   );
 }
 
-/** Key points first (quick to remember), then the full model answer in short paragraphs. */
-function Suggested({ points, full }: { points: string[]; full: string | null }) {
+/**
+ * Key points first (quick to remember), then the full model answer in short paragraphs,
+ * then a short suggested answer for each follow-up, in cards that mirror the ones on "your answer".
+ */
+function Suggested({
+  points,
+  full,
+  followUps = [],
+}: {
+  points: string[];
+  full: string | null;
+  followUps?: { question: string; suggestedAnswer?: string | null }[];
+}) {
   return (
     <div className="space-y-4">
       {points.length > 0 && (
@@ -177,6 +189,13 @@ function Suggested({ points, full }: { points: string[]; full: string | null }) 
           <Prose text={full} clamp={points.length > 0} className="text-foreground/90" />
         </div>
       )}
+      {followUps.map((f, j) => (
+        <div key={j} className="rounded-[14px] bg-surface-2 px-4 py-3.5">
+          <p className="text-[12px] text-subtle">follow-up</p>
+          <p className="mt-1 leading-relaxed text-foreground/95">{f.question}</p>
+          <Prose text={f.suggestedAnswer!} className="mt-2 text-foreground/80" />
+        </div>
+      ))}
     </div>
   );
 }

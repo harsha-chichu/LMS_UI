@@ -49,6 +49,8 @@ export const evaluationOutput = z.object({
   weaknesses: z.array(z.string()),
   suggested_answer: z.string(),
   suggested_points: z.array(z.string()),
+  /** One short model answer per follow-up listed in the prompt, in order; empty when there were none. */
+  follow_up_answers: z.array(z.string()),
   needs_follow_up: z.boolean(),
   follow_up: z.string().nullable(),
 });
